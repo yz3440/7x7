@@ -9,10 +9,10 @@ const PATTERN_EMPTY = [
 ];
 
 const PATTERN_TEST = [
-  [1, 0, 0, 1, 0, 1, 0],
-  [1, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
@@ -733,8 +733,11 @@ class BinaryPatternUniverse {
     const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
 
     // Reverse the calculation: patternId = normalizedRow * maxGridSize + normalizedCol
-    const normalizedRow = Math.floor(patternId / maxGridSize);
-    const normalizedCol = patternId % maxGridSize;
+    let normalizedRow = Math.floor(patternId / maxGridSize);
+    let normalizedCol = patternId % maxGridSize;
+    if (normalizedCol > maxGridSize / 2) {
+      normalizedCol -= maxGridSize;
+    }
 
     // Reverse the normalization: normalizedRow = row + maxGridSize
     const row = normalizedRow;
@@ -752,8 +755,8 @@ class BinaryPatternUniverse {
   rowColToWorldPos(row, col) {
     const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
     return {
-      x: col * patternSize * this.scale + this.canvas.width / 2,
-      y: -(row - 1) * patternSize * this.scale - this.canvas.height / 2,
+      x: (col + 0.5) * patternSize,
+      y: (row - 0.5) * patternSize,
     };
   }
 
@@ -790,14 +793,8 @@ class BinaryPatternUniverse {
     // The pattern should appear at the center of the screen
     // Screen center in world coordinates should be at worldPos
     const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
-    this.translation.x =
-      -worldPos.x / patternSize +
-      this.canvas.width / 2 / this.scale -
-      patternSize / 2;
-    this.translation.y =
-      worldPos.y / patternSize +
-      this.canvas.height / 2 / this.scale -
-      patternSize / 2;
+    this.translation.x = -worldPos.x;
+    this.translation.y = -worldPos.y;
   }
   // Helper function to break a large integer into 7-bit components
   static breakLargeIndexInto7BitComponents(largeIdx) {
