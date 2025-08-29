@@ -42,6 +42,30 @@
         margin: 5px 0;
         border-radius: 3px;
       }
+
+      .controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 5px;
+      }
+
+      .fly-button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .fly-button:hover {
+        background: #45a049;
+      }
     </style>
   </head>
   <body>
@@ -55,6 +79,10 @@
       <div id="debug">Rendering: 0 patterns</div>
       <div id="bounds">Bounds: (0,0) to (0,0)</div>
       <div id="error-log"></div>
+    </div>
+
+    <div class="controls">
+      <button id="flyToFSButton" class="fly-button">Fly to FS</button>
     </div>
 
     <script src="main.js"></script>

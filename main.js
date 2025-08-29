@@ -1,4 +1,24 @@
-const plusPattern = [
+const PATTERN_EMPTY = [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+];
+
+const PATTERN_EMPTY_INV = [
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+];
+
+const PATTERN_PLUS = [
   [0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 1, 0, 0, 0],
@@ -8,7 +28,7 @@ const plusPattern = [
   [0, 0, 0, 1, 0, 0, 0],
 ];
 
-const diagonalPattern = [
+const PATTERN_DIAGONAL = [
   [1, 0, 0, 0, 0, 0, 0],
   [0, 1, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0],
@@ -57,7 +77,7 @@ class BinaryPatternUniverse {
     this.GRID_COLS = Math.pow(2, 25); // 33,554,432
     this.PATTERN_SIZE = 20; // Size of each 7x7 pattern in pixels
     this.STROKE_WIDTH = 0.1; // Border width between patterns
-    this.SCALE_RANGE = [0.3, 10]; // Range of zoom levels
+    this.SCALE_RANGE = [0.3, 20]; // Range of zoom levels
 
     // Camera state - start at origin for debugging
     this.translation = {
@@ -488,8 +508,18 @@ class BinaryPatternUniverse {
 
       // Adjust translation to keep the cursor position stable
       this.translation.x += worldPosAfterZoom.x - worldPosBeforeZoom.x;
-      this.translation.y += worldPosAfterZoom.y - worldPosBeforeZoom.y;
+      this.translation.y -= worldPosAfterZoom.y - worldPosBeforeZoom.y;
     });
+
+    // Fly to FS button
+    const flyToFSButton = document.getElementById('flyToFSButton');
+    if (flyToFSButton) {
+      flyToFSButton.addEventListener('click', () => {
+        console.log('flyToFSButton clicked');
+
+        this.flyToPattern(PATTERN_EMPTY);
+      });
+    }
   }
 
   getVisiblePatterns() {
@@ -540,16 +570,6 @@ class BinaryPatternUniverse {
     let count = 0;
     const maxPatterns = 1000000; // Reasonable limit
 
-    // Helper function to break a large integer into 7-bit components
-    const breakLargeIndexInto7BitComponents = (largeIdx) => {
-      const components = [];
-      for (let i = 0; i < 7; i++) {
-        components.push(largeIdx & 0x7f); // Extract lowest 7 bits
-        largeIdx >>= 7; // Shift right by 7 bits
-      }
-      return components;
-    };
-
     // Generate patterns for visible grid cells
     for (
       let row = clampedStartRow;
@@ -567,12 +587,17 @@ class BinaryPatternUniverse {
 
         // Create a unique pattern ID that works with negative coordinates
         // Map from [-maxGridSize, maxGridSize] to [0, maxGridSize]
-        const normalizedRow = row + maxGridSize;
-        const normalizedCol = col + maxGridSize;
+        let normalizedRow = row + maxGridSize;
+        let normalizedCol = col + maxGridSize;
+        if (col < 0) {
+          normalizedRow += 1;
+        }
+
         const patternId = normalizedRow * maxGridSize + normalizedCol;
 
         // Break the pattern ID into 7-bit components
-        const components = breakLargeIndexInto7BitComponents(patternId);
+        const components =
+          BinaryPatternUniverse.breakLargeIndexInto7BitComponents(patternId);
 
         // Add components to respective arrays
         for (let i = 0; i < 7; i++) {
@@ -673,6 +698,108 @@ class BinaryPatternUniverse {
   }
 
   /**
+   * Reverse engineers 7-bit components back to a big pattern index
+   * @param {number[]} components - Array of 7 numbers representing 7-bit components
+   * @returns {number} The reconstructed pattern index
+   */
+  static componentsToPatternId(components) {
+    if (!Array.isArray(components) || components.length !== 7) {
+      throw new Error('Input must be an array of 7 components');
+    }
+
+    let patternId = 0;
+    for (let i = 0; i < 7; i++) {
+      patternId |= (components[i] & 0x7f) << (i * 7); // Each component contributes 7 bits
+    }
+    return patternId;
+  }
+
+  /**
+   * Converts a pattern index back to row and column coordinates
+   * @param {number} patternId - The pattern index
+   * @returns {object} Object with row and col properties
+   */
+  patternIdToRowCol(patternId) {
+    const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
+
+    // Reverse the calculation: patternId = normalizedRow * maxGridSize + normalizedCol
+    const normalizedRow = Math.floor(patternId / maxGridSize);
+    const normalizedCol = patternId % maxGridSize;
+
+    // Reverse the normalization: normalizedRow = row + maxGridSize
+    const row = normalizedRow;
+    const col = normalizedCol;
+
+    return { row, col };
+  }
+
+  /**
+   * Converts row and column to world coordinates
+   * @param {number} row - Grid row
+   * @param {number} col - Grid column
+   * @returns {object} Object with x and y world coordinates
+   */
+  rowColToWorldPos(row, col) {
+    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
+    return {
+      x: col * patternSize * this.scale + this.canvas.width / 2,
+      y: -(row - 1) * patternSize * this.scale - this.canvas.height / 2,
+    };
+  }
+
+  /**
+   * Finds the world position of a specific 7x7 pattern
+   * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
+   * @returns {object} Object with x and y world coordinates
+   */
+  findPatternWorldPosition(binaryPattern) {
+    // Convert pattern to components
+    const components =
+      BinaryPatternUniverse.binaryPatternTo7BitComponents(binaryPattern);
+
+    // Convert components to pattern ID
+    const patternId = BinaryPatternUniverse.componentsToPatternId(components);
+
+    // Convert pattern ID to row/col
+    const { row, col } = this.patternIdToRowCol(patternId);
+    console.log(row, col);
+    // Convert row/col to world position
+    return this.rowColToWorldPos(row, col);
+  }
+
+  /**
+   * Fly to a specific pattern with zoom level 10
+   * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
+   */
+  flyToPattern(binaryPattern) {
+    // Set zoom level to 10
+    this.scale = 20;
+    const worldPos = this.findPatternWorldPosition(binaryPattern);
+
+    // Center the pattern on screen by setting translation
+    // The pattern should appear at the center of the screen
+    // Screen center in world coordinates should be at worldPos
+    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
+    this.translation.x =
+      -worldPos.x / patternSize +
+      this.canvas.width / 2 / this.scale -
+      patternSize / 2;
+    this.translation.y =
+      worldPos.y / patternSize +
+      this.canvas.height / 2 / this.scale -
+      patternSize / 2;
+  }
+  // Helper function to break a large integer into 7-bit components
+  static breakLargeIndexInto7BitComponents(largeIdx) {
+    const components = [];
+    for (let i = 0; i < 7; i++) {
+      components.push(largeIdx & 0x7f); // Extract lowest 7 bits
+      largeIdx >>= 7; // Shift right by 7 bits
+    }
+    return components;
+  }
+
+  /**
    * Converts a 7x7 binary pattern to 7-bit components
    * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
    * @returns {number[]} Array of 7 numbers, each representing 7 bits of the pattern
@@ -727,7 +854,8 @@ class BinaryPatternUniverse {
 // Initialize when page loads
 window.addEventListener('load', () => {
   try {
-    new BinaryPatternUniverse();
+    window.universe = new BinaryPatternUniverse();
+    window.universe.flyToPattern(PATTERN_PLUS);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
