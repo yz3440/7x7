@@ -8,6 +8,16 @@ const PATTERN_EMPTY = [
   [0, 0, 0, 0, 0, 0, 0],
 ];
 
+const PATTERN_TEST = [
+  [1, 0, 0, 1, 0, 1, 0],
+  [1, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+];
+
 const PATTERN_EMPTY_INV = [
   [1, 1, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 1, 1],
@@ -855,7 +865,7 @@ class BinaryPatternUniverse {
 window.addEventListener('load', () => {
   try {
     window.universe = new BinaryPatternUniverse();
-    window.universe.flyToPattern(PATTERN_PLUS);
+    window.universe.flyToPattern(PATTERN_TEST);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
