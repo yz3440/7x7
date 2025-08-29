@@ -438,10 +438,19 @@ class BinaryPatternUniverse {
 
     // Limit grid size to prevent memory issues
     const maxGridSize = 33554432;
-    const clampedStartCol = Math.max(-maxGridSize, startCol);
-    const clampedStartRow = Math.max(-maxGridSize, startRow);
-    const clampedEndCol = Math.min(maxGridSize, endCol);
-    const clampedEndRow = Math.min(maxGridSize, endRow);
+    // const maxGridSize = 1000;
+    let clampedStartCol = Math.max(-maxGridSize, startCol);
+    let clampedStartRow = Math.max(-maxGridSize, startRow);
+    let clampedEndCol = Math.min(maxGridSize, endCol);
+    let clampedEndRow = Math.min(maxGridSize, endRow);
+
+    const rowSpan = clampedEndRow - clampedStartRow;
+    const colSpan = clampedEndCol - clampedStartCol;
+
+    clampedStartCol -= Math.ceil(colSpan / 2);
+    clampedStartRow -= Math.ceil(rowSpan / 2);
+    clampedEndCol += Math.ceil(colSpan / 2);
+    clampedEndRow += Math.ceil(rowSpan / 2);
 
     const offsets = [];
     const patternComponents = [[], [], [], [], [], [], []]; // 7 arrays for 7-bit components
@@ -470,8 +479,8 @@ class BinaryPatternUniverse {
         col++
       ) {
         // Calculate world position for this grid cell
-        const worldX = col * patternSize - this.canvas.width / 2 / this.scale;
-        const worldY = row * patternSize - this.canvas.height / 2 / this.scale;
+        const worldX = col * patternSize;
+        const worldY = row * patternSize;
 
         // Create a unique pattern ID that works with negative coordinates
         // Map from [-maxGridSize, maxGridSize] to [0, 2*maxGridSize]
