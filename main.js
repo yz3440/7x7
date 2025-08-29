@@ -403,8 +403,43 @@ class BinaryPatternUniverse {
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+
+      // Get cursor position in screen coordinates
+      const rect = this.canvas.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      // Convert screen coordinates to world coordinates
+      // This needs to match the inverse of the shader transformation:
+      // Shader: worldPos = (worldPos + translation) * scale
+      //         ndc = worldPos / (resolution * 0.5)
+      //         ndc.y = -ndc.y (Y flip)
+      // Inverse: worldPos = (ndc * resolution * 0.5) / scale - translation
+
+      // Convert screen to NDC, accounting for the Y flip in the shader
+      const ndcX = cursorX / (this.canvas.width * 0.5) - 1.0;
+      const ndcY = -(cursorY / (this.canvas.height * 0.5) - 1.0); // Apply Y flip to match shader
+
+      // Convert NDC to world coordinates before zoom
+      const worldPosBeforeZoom = {
+        x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
+        y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
+      };
+
+      // Apply zoom
+      const oldScale = this.scale;
       this.scale *= zoomFactor;
       this.scale = Math.max(0.2, Math.min(10, this.scale));
+
+      // Convert NDC to world coordinates after zoom
+      const worldPosAfterZoom = {
+        x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
+        y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
+      };
+
+      // Adjust translation to keep the cursor position stable
+      this.translation.x += worldPosAfterZoom.x - worldPosBeforeZoom.x;
+      this.translation.y += worldPosAfterZoom.y - worldPosBeforeZoom.y;
     });
   }
 
