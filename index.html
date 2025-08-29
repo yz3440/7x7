@@ -3,68 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Every 7x7 Black and White Image</title>
+    <title>7x7 Binary Pattern Universe</title>
     <style>
       body {
         margin: 0;
         padding: 0;
         background: #222;
-        color: white;
-        font-family: Arial, sans-serif;
         overflow: hidden;
+        font-family: Arial, sans-serif;
       }
 
-      #canvas {
+      canvas {
         display: block;
         cursor: grab;
+        border: 1px solid #444;
       }
 
-      #canvas:active {
+      canvas:active {
         cursor: grabbing;
       }
 
-      #info {
+      .info {
         position: absolute;
         top: 10px;
         left: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 10px;
+        color: white;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
         border-radius: 5px;
-        font-size: 14px;
+        font-size: 12px;
+        max-width: 350px;
       }
 
-      #controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.7);
+      .error {
+        color: #ff6b6b;
+        background: rgba(255, 0, 0, 0.1);
         padding: 10px;
-        border-radius: 5px;
-        font-size: 14px;
+        margin: 5px 0;
+        border-radius: 3px;
       }
     </style>
   </head>
   <body>
     <canvas id="canvas"></canvas>
-
-    <div id="info">
-      <div>Total Images: 2^49 = 562,949,953,421,312</div>
-      <div>Scale: <span id="scale-display">1.0</span>x</div>
-      <div>
-        Center Image: (<span id="pos-x">0</span>, <span id="pos-y">0</span>)
-      </div>
-      <div>Visible Images: <span id="visible-count">0</span></div>
-      <div style="font-size: 12px; color: #aaa; margin-top: 5px">
-        Each coordinate represents one unique 7×7 pattern
-      </div>
-    </div>
-
-    <div id="controls">
-      <div>Controls:</div>
-      <div>• Drag to pan</div>
-      <div>• Mouse wheel to zoom</div>
-      <div>• Patterns ordered by binary value (0 to 2^49-1)</div>
-      <div>• Red borders separate each pattern</div>
+    <div class="info">
+      <div><strong>7x7 Binary Pattern Universe</strong></div>
+      <div>Total patterns: 2^49 = 562,949,953,421,312</div>
+      <div>Grid: 2^24 rows × 2^25 columns</div>
+      <div><strong>Controls:</strong> Drag to pan, Scroll to zoom</div>
+      <div id="coords">Position: (0, 0) | Zoom: 1.0x</div>
+      <div id="debug">Rendering: 0 patterns</div>
+      <div id="bounds">Bounds: (0,0) to (0,0)</div>
+      <div id="error-log"></div>
     </div>
 
     <script src="main.js"></script>

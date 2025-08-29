@@ -1,333 +1,441 @@
-class ImageGrid {
+class BinaryPatternUniverse {
   constructor() {
     this.canvas = document.getElementById('canvas');
-    this.gl = this.canvas.getContext('webgl2');
+    this.errorLog = document.getElementById('error-log');
 
+    // Check WebGL2 support
+    this.gl = this.canvas.getContext('webgl2');
     if (!this.gl) {
-      alert('WebGL2 not supported');
+      this.showError('WebGL2 not supported');
       return;
     }
 
-    // State
-    this.translation = [0, 0];
+    console.log('WebGL2 initialized successfully');
+
+    // Grid dimensions - for the full universe
+    this.GRID_ROWS = Math.pow(2, 24); // 16,777,216
+    this.GRID_COLS = Math.pow(2, 25); // 33,554,432
+    this.PATTERN_SIZE = 20; // Size of each 7x7 pattern in pixels
+    this.STROKE_WIDTH = 0.1; // Border width between patterns
+
+    // Camera state - start at origin for debugging
+    this.translation = {
+      x: 0,
+      y: 0,
+    };
     this.scale = 1.0;
-    this.strokeWidth = 0.1; // Thin red stroke between patterns
+
+    // Mouse state
     this.isDragging = false;
-    this.lastMousePos = [0, 0];
+    this.lastMousePos = { x: 0, y: 0 };
 
-    // Initialize
-    this.setupCanvas();
-    this.setupShaders();
-    this.setupBuffers();
-    this.setupEventListeners();
-    this.updateDisplay();
-
-    // Start render loop
-    this.render();
+    this.init();
   }
 
-  setupCanvas() {
-    const resizeCanvas = () => {
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    };
+  showError(message) {
+    console.error(message);
+    this.errorLog.innerHTML += `<div class="error">${message}</div>`;
+  }
 
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+  init() {
+    try {
+      this.resizeCanvas();
+      this.setupWebGL();
+      this.setupShaders();
+      this.setupGeometry();
+      this.setupEventListeners();
+      this.startRenderLoop();
+
+      console.log('Initialization complete');
+
+      window.addEventListener('resize', () => this.resizeCanvas());
+    } catch (error) {
+      this.showError(`Initialization failed: ${error.message}`);
+    }
+  }
+
+  setupWebGL() {
+    // Set clear color to dark gray so we can see if anything renders
+    this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    this.gl.enable(this.gl.BLEND);
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    console.log(`Canvas resized to ${this.canvas.width}x${this.canvas.height}`);
   }
 
   setupShaders() {
-    // Vertex shader - creates a fullscreen quad
     const vertexShaderSource = `#version 300 es
             in vec2 a_position;
-            out vec2 v_texCoord;
-            
-            void main() {
-                gl_Position = vec4(a_position, 0.0, 1.0);
-                v_texCoord = a_position * 0.5 + 0.5;
-            }
-        `;
-
-    // Fragment shader - generates 7x7 images procedurally
-    const fragmentShaderSource = `#version 300 es
-            precision highp float;
-            
-            in vec2 v_texCoord;
-            out vec4 fragColor;
+            in vec2 a_instanceOffset;
+            in float a_patternId;
             
             uniform vec2 u_resolution;
             uniform vec2 u_translation;
             uniform float u_scale;
+            uniform float u_patternSize;
             uniform float u_strokeWidth;
             
-            // Convert 2D grid coordinates to a linear binary index
-            // This properly orders patterns by their binary values
-            float coordsToIndex(vec2 imageCoord) {
-                // We need to map 2D coordinates to a 49-bit index
-                // Since we can't handle full 2^49 in float precision,
-                // we'll use a subset but maintain proper binary ordering
-                
-                // Use row-major ordering: index = y * width + x
-                // For demo, we'll use a reasonable grid size
-                float gridWidth = 1000.0; // Adjust as needed
-                return imageCoord.y * gridWidth + imageCoord.x;
-            }
-            
-            // Extract a specific bit from a number
-            float getBit(float number, int bitIndex) {
-                // Use bit manipulation to extract the bit
-                float divisor = pow(2.0, float(bitIndex));
-                return mod(floor(abs(number) / divisor), 2.0);
-            }
-            
-            // Generate a 7x7 image from a binary index
-            vec3 generateImageFromIndex(float imageIndex, vec2 pixelPos) {
-                // pixelPos is in range [0,1] within the image
-                int x = int(floor(pixelPos.x * 7.0));
-                int y = int(floor(pixelPos.y * 7.0));
-                
-                // Calculate bit index (0-48 for 7x7 = 49 pixels)
-                // We read from left to right, top to bottom
-                int bitIndex = y * 7 + x;
-                
-                // Get the bit value for this pixel from the binary representation
-                float bit = getBit(imageIndex, bitIndex);
-                
-                return vec3(bit);
-            }
-            
-            // Create a representative color for an image when zoomed out
-            vec3 getImageSummary(float imageIndex) {
-                // Sample key bits to create a representative pattern
-                float bit0 = getBit(imageIndex, 0);   // Top-left
-                float bit6 = getBit(imageIndex, 6);   // Top-right
-                float bit24 = getBit(imageIndex, 24); // Center
-                float bit42 = getBit(imageIndex, 42); // Bottom-left
-                float bit48 = getBit(imageIndex, 48); // Bottom-right
-                
-                // Create a density value based on how many bits are set
-                float density = (bit0 + bit6 + bit24 + bit42 + bit48) / 5.0;
-                return vec3(density);
-            }
+            out vec2 v_localPos;
+            out float v_patternId;
             
             void main() {
-                vec2 screenPos = v_texCoord * u_resolution;
+                v_patternId = a_patternId;
+                v_localPos = a_position;
                 
-                // Apply transformation
-                vec2 worldPos = (screenPos - u_translation) / u_scale;
+                // Calculate world position
+                vec2 worldPos = a_instanceOffset + a_position;
                 
-                // Each image is represented by one pixel at scale 1.0
-                // At higher scales, we show the actual 7x7 pattern
-                float imageSize = max(1.0, u_scale);
+                // Apply camera transform
+                worldPos = (worldPos + u_translation) * u_scale;
                 
-                // Calculate which image we're looking at
-                vec2 imageCoord = floor(worldPos / imageSize);
+                // Convert to normalized device coordinates
+                vec2 ndc = worldPos / (u_resolution * 0.5);
+                ndc.y = -ndc.y; // Flip Y axis
                 
-                // Convert to linear index for proper binary ordering
-                float imageIndex = coordsToIndex(imageCoord);
-                
-                // Calculate position within the image
-                vec2 pixelInImage = mod(worldPos, imageSize) / imageSize;
-                
-                // Check if we're in the border/stroke area
-                vec2 imageGrid = fract(worldPos / imageSize);
-                float borderWidth = u_strokeWidth / imageSize;
-                bool isInBorder = (imageGrid.x < borderWidth || imageGrid.y < borderWidth);
-                
-                vec3 color;
-                
-                if (isInBorder) {
-                    // Red stroke between patterns
-                    color = vec3(1.0, 0.0, 0.0);
-                } else {
-                    if (u_scale < 4.0) {
-                        // At very low zoom, show a summary of each image
-                        color = getImageSummary(imageIndex);
-                    } else {
-                        // At higher zoom, show the full 7x7 pattern
-                        color = generateImageFromIndex(imageIndex, pixelInImage);
-                    }
-                }
-                
-                fragColor = vec4(color, 1.0);
+                gl_Position = vec4(ndc, 0.0, 1.0);
             }
         `;
 
-    // Compile shaders
-    const vertexShader = this.compileShader(
+    const fragmentShaderSource = `#version 300 es
+            precision highp float;
+            
+            in vec2 v_localPos;
+            in float v_patternId;
+            
+            uniform float u_patternSize;
+            uniform float u_strokeWidth;
+            
+            out vec4 fragColor;
+            
+            // Extract bit using integer operations for better precision
+            bool getBit(float patternId, int bitIndex) {
+                // Use modular arithmetic to extract bits
+                float divisor = pow(2.0, float(bitIndex));
+                float quotient = floor(patternId / divisor);
+                return mod(quotient, 2.0) > 0.5;
+            }
+            
+            void main() {
+                float totalSize = u_patternSize + u_strokeWidth;
+                
+                // Check if we're in stroke area
+                if (v_localPos.x < u_strokeWidth * 0.5 || 
+                    v_localPos.x > totalSize - u_strokeWidth * 0.5 ||
+                    v_localPos.y < u_strokeWidth * 0.5 || 
+                    v_localPos.y > totalSize - u_strokeWidth * 0.5) {
+                    fragColor = vec4(1.0, 0.2, 0.2, 1.0); // Red stroke
+                    return;
+                }
+                
+                // Calculate which pixel within the 7x7 pattern
+                vec2 patternPos = v_localPos - vec2(u_strokeWidth * 0.5);
+                float pixelSize = (u_patternSize - u_strokeWidth) / 7.0;
+                
+                int pixelX = int(floor(patternPos.x / pixelSize));
+                int pixelY = int(floor(patternPos.y / pixelSize));
+                
+                // Ensure we're within bounds
+                if (pixelX < 0 || pixelX >= 7 || pixelY < 0 || pixelY >= 7) {
+                    fragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red for out of bounds
+                    return;
+                }
+                
+                // Calculate bit index (0-48)
+                int bitIndex = pixelY * 7 + pixelX;
+                
+                // Get the bit value
+                bool bitValue = getBit(v_patternId, bitIndex);
+                
+                // Color: false = black, true = white
+                float color = bitValue ? 1.0 : 0.0;
+                fragColor = vec4(color, color, color, 1.0);
+            }
+        `;
+
+    console.log('Compiling shaders...');
+    this.program = this.createShaderProgram(
       vertexShaderSource,
-      this.gl.VERTEX_SHADER
-    );
-    const fragmentShader = this.compileShader(
-      fragmentShaderSource,
-      this.gl.FRAGMENT_SHADER
+      fragmentShaderSource
     );
 
-    // Create program
-    this.program = this.gl.createProgram();
-    this.gl.attachShader(this.program, vertexShader);
-    this.gl.attachShader(this.program, fragmentShader);
-    this.gl.linkProgram(this.program);
-
-    if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
-      console.error(
-        'Program link error:',
-        this.gl.getProgramInfoLog(this.program)
-      );
+    if (!this.program) {
+      throw new Error('Failed to create shader program');
     }
+
+    this.gl.useProgram(this.program);
 
     // Get uniform locations
     this.uniforms = {
       resolution: this.gl.getUniformLocation(this.program, 'u_resolution'),
       translation: this.gl.getUniformLocation(this.program, 'u_translation'),
       scale: this.gl.getUniformLocation(this.program, 'u_scale'),
+      patternSize: this.gl.getUniformLocation(this.program, 'u_patternSize'),
       strokeWidth: this.gl.getUniformLocation(this.program, 'u_strokeWidth'),
     };
 
-    // Get attribute location
-    this.attributes = {
-      position: this.gl.getAttribLocation(this.program, 'a_position'),
-    };
+    console.log('Shaders compiled successfully');
   }
 
-  compileShader(source, type) {
+  createShaderProgram(vertexSource, fragmentSource) {
+    const vertexShader = this.compileShader(
+      this.gl.VERTEX_SHADER,
+      vertexSource
+    );
+    const fragmentShader = this.compileShader(
+      this.gl.FRAGMENT_SHADER,
+      fragmentSource
+    );
+
+    if (!vertexShader || !fragmentShader) {
+      return null;
+    }
+
+    const program = this.gl.createProgram();
+    this.gl.attachShader(program, vertexShader);
+    this.gl.attachShader(program, fragmentShader);
+    this.gl.linkProgram(program);
+
+    if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
+      const error = this.gl.getProgramInfoLog(program);
+      this.showError(`Program link error: ${error}`);
+      return null;
+    }
+
+    return program;
+  }
+
+  compileShader(type, source) {
     const shader = this.gl.createShader(type);
     this.gl.shaderSource(shader, source);
     this.gl.compileShader(shader);
 
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-      console.error('Shader compile error:', this.gl.getShaderInfoLog(shader));
-      this.gl.deleteShader(shader);
+      const error = this.gl.getShaderInfoLog(shader);
+      const shaderType = type === this.gl.VERTEX_SHADER ? 'vertex' : 'fragment';
+      this.showError(`${shaderType} shader compile error: ${error}`);
       return null;
     }
 
     return shader;
   }
 
-  setupBuffers() {
-    // Create fullscreen quad
-    const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+  setupGeometry() {
+    console.log('Setting up geometry...');
 
-    this.positionBuffer = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
+    // Create a rectangle for each pattern (including stroke)
+    const size = this.PATTERN_SIZE + this.STROKE_WIDTH;
+    const vertices = [
+      0,
+      0, // bottom-left
+      size,
+      0, // bottom-right
+      0,
+      size, // top-left
+      size,
+      size, // top-right
+    ];
+
+    const indices = [0, 1, 2, 1, 2, 3];
 
     // Create VAO
     this.vao = this.gl.createVertexArray();
     this.gl.bindVertexArray(this.vao);
-    this.gl.enableVertexAttribArray(this.attributes.position);
-    this.gl.vertexAttribPointer(
-      this.attributes.position,
-      2,
-      this.gl.FLOAT,
-      false,
-      0,
-      0
+
+    // Vertex buffer
+    this.vertexBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array(vertices),
+      this.gl.STATIC_DRAW
     );
+
+    // Index buffer
+    this.indexBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+    this.gl.bufferData(
+      this.gl.ELEMENT_ARRAY_BUFFER,
+      new Uint16Array(indices),
+      this.gl.STATIC_DRAW
+    );
+
+    // Position attribute
+    const positionAttrib = this.gl.getAttribLocation(
+      this.program,
+      'a_position'
+    );
+    if (positionAttrib === -1) {
+      this.showError('Could not find a_position attribute');
+      return;
+    }
+
+    this.gl.enableVertexAttribArray(positionAttrib);
+    this.gl.vertexAttribPointer(positionAttrib, 2, this.gl.FLOAT, false, 0, 0);
+
+    // Create instance buffers
+    this.instanceOffsetBuffer = this.gl.createBuffer();
+    this.instancePatternIdBuffer = this.gl.createBuffer();
+
+    // Instance offset attribute
+    const offsetAttrib = this.gl.getAttribLocation(
+      this.program,
+      'a_instanceOffset'
+    );
+    if (offsetAttrib === -1) {
+      this.showError('Could not find a_instanceOffset attribute');
+      return;
+    }
+
+    this.gl.enableVertexAttribArray(offsetAttrib);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceOffsetBuffer);
+    this.gl.vertexAttribPointer(offsetAttrib, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribDivisor(offsetAttrib, 1);
+
+    // Pattern ID attribute
+    const patternIdAttrib = this.gl.getAttribLocation(
+      this.program,
+      'a_patternId'
+    );
+    if (patternIdAttrib === -1) {
+      this.showError('Could not find a_patternId attribute');
+      return;
+    }
+
+    this.gl.enableVertexAttribArray(patternIdAttrib);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instancePatternIdBuffer);
+    this.gl.vertexAttribPointer(patternIdAttrib, 1, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribDivisor(patternIdAttrib, 1);
+
+    console.log('Geometry setup complete');
   }
 
   setupEventListeners() {
-    // Mouse events for dragging
+    // Mouse events
     this.canvas.addEventListener('mousedown', (e) => {
       this.isDragging = true;
-      this.lastMousePos = [e.clientX, e.clientY];
+      this.lastMousePos = { x: e.clientX, y: e.clientY };
     });
 
-    this.canvas.addEventListener('mousemove', (e) => {
+    window.addEventListener('mousemove', (e) => {
       if (this.isDragging) {
-        const dx = e.clientX - this.lastMousePos[0];
-        const dy = e.clientY - this.lastMousePos[1];
+        const dx = e.clientX - this.lastMousePos.x;
+        const dy = e.clientY - this.lastMousePos.y;
 
-        this.translation[0] += dx;
-        this.translation[1] -= dy; // Flip Y axis
+        this.translation.x += dx / this.scale;
+        this.translation.y += dy / this.scale;
 
-        this.lastMousePos = [e.clientX, e.clientY];
-        this.updateDisplay();
+        this.lastMousePos = { x: e.clientX, y: e.clientY };
       }
     });
 
-    this.canvas.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', () => {
       this.isDragging = false;
     });
 
-    this.canvas.addEventListener('mouseleave', () => {
-      this.isDragging = false;
-    });
-
-    // Mouse wheel for zooming
+    // Wheel zoom
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = this.scale * zoomFactor;
-
-      // Limit zoom range
-      this.scale = Math.max(0.28, Math.min(22.2, newScale));
-
-      this.updateDisplay();
-    });
-
-    // Touch events for mobile
-    this.canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (e.touches.length === 1) {
-        this.isDragging = true;
-        this.lastMousePos = [e.touches[0].clientX, e.touches[0].clientY];
-      }
-    });
-
-    this.canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if (this.isDragging && e.touches.length === 1) {
-        const dx = e.touches[0].clientX - this.lastMousePos[0];
-        const dy = e.touches[0].clientY - this.lastMousePos[1];
-
-        this.translation[0] += dx;
-        this.translation[1] -= dy;
-
-        this.lastMousePos = [e.touches[0].clientX, e.touches[0].clientY];
-        this.updateDisplay();
-      }
-    });
-
-    this.canvas.addEventListener('touchend', () => {
-      this.isDragging = false;
+      this.scale *= zoomFactor;
+      this.scale = Math.max(0.01, Math.min(10, this.scale));
     });
   }
 
-  updateDisplay() {
-    // Update info panel
-    document.getElementById('scale-display').textContent =
-      this.scale.toFixed(2);
-    document.getElementById('pos-x').textContent = Math.round(
-      this.translation[0]
-    );
-    document.getElementById('pos-y').textContent = Math.round(
-      this.translation[1]
-    );
+  getVisiblePatterns() {
+    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
+    const visibleWidth = this.canvas.width / this.scale;
+    const visibleHeight = this.canvas.height / this.scale;
 
-    // Calculate visible images (rough estimate)
-    const imageSize = Math.max(1.0, this.scale);
-    const visibleWidth = this.canvas.width / imageSize;
-    const visibleHeight = this.canvas.height / imageSize;
-    const visibleCount = Math.round(visibleWidth * visibleHeight);
-    document.getElementById('visible-count').textContent =
-      visibleCount.toLocaleString();
+    // Add some padding to reduce popping
+    const padding = patternSize * 2;
 
-    // Calculate current world position for center of screen
-    const centerX = (this.canvas.width / 2 - this.translation[0]) / this.scale;
-    const centerY = (this.canvas.height / 2 - this.translation[1]) / this.scale;
-    const imageCoordX = Math.floor(centerX / imageSize);
-    const imageCoordY = Math.floor(centerY / imageSize);
+    // Calculate world coordinates of the visible area
+    // The visible area in world coordinates starts at -translation and extends by visible dimensions
+    const worldLeft = -this.translation.x - padding;
+    const worldTop = -this.translation.y - padding;
+    const worldRight = -this.translation.x + visibleWidth + padding;
+    const worldBottom = -this.translation.y + visibleHeight + padding;
 
-    // Update position display to show image coordinates
-    document.getElementById('pos-x').textContent = imageCoordX.toString();
-    document.getElementById('pos-y').textContent = imageCoordY.toString();
+    // Convert world coordinates to grid coordinates
+    const left = Math.floor(worldLeft / patternSize);
+    const top = Math.floor(worldTop / patternSize);
+    const right = Math.ceil(worldRight / patternSize);
+    const bottom = Math.ceil(worldBottom / patternSize);
+
+    const patterns = [];
+    const offsets = [];
+
+    // Limit the number of patterns to prevent overwhelming the GPU
+    let count = 0;
+    const maxPatterns = 50000000;
+
+    // Use a more reasonable grid size for now - we can expand later
+    const maxGridSize = 1000; // This gives us 1M patterns to work with
+
+    for (
+      let row = Math.max(-maxGridSize, top);
+      row < Math.min(maxGridSize, bottom) && count < maxPatterns;
+      row++
+    ) {
+      for (
+        let col = Math.max(-maxGridSize, left);
+        col < Math.min(maxGridSize, right) && count < maxPatterns;
+        col++
+      ) {
+        // Convert grid position to pattern ID
+        // For now, use a simple mapping that works with negative coordinates
+        const gridRow = row + maxGridSize; // Shift to make positive
+        const gridCol = col + maxGridSize;
+        const patternId = gridRow * (maxGridSize * 2) + gridCol;
+
+        patterns.push(patternId);
+        offsets.push(col * patternSize, row * patternSize);
+        count++;
+      }
+    }
+
+    // Update debug info
+    document.getElementById(
+      'bounds'
+    ).textContent = `Bounds: (${left}, ${top}) to (${right}, ${bottom}) | Grid: ${
+      right - left
+    }x${bottom - top} | Translation: (${Math.round(
+      this.translation.x
+    )}, ${Math.round(this.translation.y)})`;
+
+    return { patterns, offsets, count };
   }
 
   render() {
-    this.gl.useProgram(this.program);
+    // Clear the canvas
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+
+    const { patterns, offsets, count } = this.getVisiblePatterns();
+
+    if (patterns.length === 0) {
+      document.getElementById('debug').textContent = 'No patterns to render';
+      return;
+    }
+
+    // Update instance buffers
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceOffsetBuffer);
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array(offsets),
+      this.gl.DYNAMIC_DRAW
+    );
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instancePatternIdBuffer);
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      new Float32Array(patterns),
+      this.gl.DYNAMIC_DRAW
+    );
 
     // Set uniforms
     this.gl.uniform2f(
@@ -337,24 +445,54 @@ class ImageGrid {
     );
     this.gl.uniform2f(
       this.uniforms.translation,
-      this.translation[0],
-      this.translation[1]
+      this.translation.x,
+      this.translation.y
     );
     this.gl.uniform1f(this.uniforms.scale, this.scale);
-    this.gl.uniform1f(this.uniforms.strokeWidth, this.strokeWidth);
+    this.gl.uniform1f(this.uniforms.patternSize, this.PATTERN_SIZE);
+    this.gl.uniform1f(this.uniforms.strokeWidth, this.STROKE_WIDTH);
 
-    // Clear and draw
-    this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-
+    // Draw
     this.gl.bindVertexArray(this.vao);
-    this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+    this.gl.drawElementsInstanced(
+      this.gl.TRIANGLES,
+      6,
+      this.gl.UNSIGNED_SHORT,
+      0,
+      patterns.length
+    );
 
-    requestAnimationFrame(() => this.render());
+    // Update debug info
+    document.getElementById(
+      'debug'
+    ).textContent = `Rendering: ${count} patterns`;
+  }
+
+  updateInfo() {
+    const coords = document.getElementById('coords');
+    coords.textContent = `Position: (${Math.round(
+      this.translation.x
+    )}, ${Math.round(this.translation.y)}) | Zoom: ${this.scale.toFixed(3)}x`;
+  }
+
+  startRenderLoop() {
+    const renderFrame = () => {
+      this.render();
+      this.updateInfo();
+      requestAnimationFrame(renderFrame);
+    };
+    renderFrame();
   }
 }
 
 // Initialize when page loads
 window.addEventListener('load', () => {
-  new ImageGrid();
+  try {
+    new BinaryPatternUniverse();
+  } catch (error) {
+    console.error('Failed to initialize:', error);
+    document.getElementById(
+      'error-log'
+    ).innerHTML = `<div class="error">Failed to initialize: ${error.message}</div>`;
+  }
 });
