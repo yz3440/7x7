@@ -141,6 +141,9 @@ class BinaryPatternUniverse {
 
   setupShaders() {
     const vertexShaderSource = `#version 300 es
+            precision highp float;
+            precision highp int;
+            
             in vec2 a_position;
             in vec2 a_instanceOffset;
             in float a_patternId0;
@@ -192,6 +195,7 @@ class BinaryPatternUniverse {
 
     const fragmentShaderSource = `#version 300 es
             precision highp float;
+            precision highp int;
             
             in vec2 v_localPos;
             in float v_patternId0;
@@ -862,7 +866,7 @@ class BinaryPatternUniverse {
 window.addEventListener('load', () => {
   try {
     window.universe = new BinaryPatternUniverse();
-    window.universe.flyToPattern(PATTERN_TEST);
+    window.universe.flyToPattern(PATTERN_FS);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
