@@ -522,7 +522,6 @@ class BinaryPatternUniverse {
         const worldY = row * patternSize;
 
         // Create a unique pattern ID that works with negative coordinates
-        // Map from [-maxGridSize, maxGridSize] to [0, 2*maxGridSize]
         // Map from [-maxGridSize, maxGridSize] to [0, maxGridSize]
         const normalizedRow = row + maxGridSize;
         const normalizedCol = col + maxGridSize;
@@ -537,7 +536,7 @@ class BinaryPatternUniverse {
         }
 
         offsets.push(worldX, worldY);
-        }
+
         count++;
       }
     }
