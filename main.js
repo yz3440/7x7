@@ -72,7 +72,13 @@ class BinaryPatternUniverse {
     const vertexShaderSource = `#version 300 es
             in vec2 a_position;
             in vec2 a_instanceOffset;
-            in float a_patternId;
+            in float a_patternId0;
+            in float a_patternId1;
+            in float a_patternId2;
+            in float a_patternId3;
+            in float a_patternId4;
+            in float a_patternId5;
+            in float a_patternId6;
             
             uniform vec2 u_resolution;
             uniform vec2 u_translation;
@@ -81,10 +87,22 @@ class BinaryPatternUniverse {
             uniform float u_strokeWidth;
             
             out vec2 v_localPos;
-            out float v_patternId;
+            out float v_patternId0;
+            out float v_patternId1;
+            out float v_patternId2;
+            out float v_patternId3;
+            out float v_patternId4;
+            out float v_patternId5;
+            out float v_patternId6;
             
             void main() {
-                v_patternId = a_patternId;
+                v_patternId0 = a_patternId0;
+                v_patternId1 = a_patternId1;
+                v_patternId2 = a_patternId2;
+                v_patternId3 = a_patternId3;
+                v_patternId4 = a_patternId4;
+                v_patternId5 = a_patternId5;
+                v_patternId6 = a_patternId6;
                 v_localPos = a_position;
                 
                 // Calculate world position
@@ -105,19 +123,41 @@ class BinaryPatternUniverse {
             precision highp float;
             
             in vec2 v_localPos;
-            in float v_patternId;
+            in float v_patternId0;
+            in float v_patternId1;
+            in float v_patternId2;
+            in float v_patternId3;
+            in float v_patternId4;
+            in float v_patternId5;
+            in float v_patternId6;
             
             uniform float u_patternSize;
             uniform float u_strokeWidth;
             
             out vec4 fragColor;
             
-            // Extract bit using integer operations for better precision
-            bool getBit(float patternId, int bitIndex) {
-                // Use modular arithmetic to extract bits
-                float divisor = pow(2.0, float(bitIndex));
-                float quotient = floor(patternId / divisor);
-                return mod(quotient, 2.0) > 0.5;
+            // Get bit from one of the 7-bit components
+            bool getBitFromComponent(float component, int localBitIndex) {
+                int intComponent = int(component);
+                int mask = 1 << localBitIndex;
+                return (intComponent & mask) != 0;
+            }
+            
+            // Get bit from the reconstructed 49-bit pattern
+            bool getBit(int bitIndex) {
+                // Each component holds 7 bits: component 0 = bits 0-6, component 1 = bits 7-13, etc.
+                int componentIndex = bitIndex / 7;
+                int localBitIndex = bitIndex % 7;
+                
+                if (componentIndex == 0) return getBitFromComponent(v_patternId0, localBitIndex);
+                else if (componentIndex == 1) return getBitFromComponent(v_patternId1, localBitIndex);
+                else if (componentIndex == 2) return getBitFromComponent(v_patternId2, localBitIndex);
+                else if (componentIndex == 3) return getBitFromComponent(v_patternId3, localBitIndex);
+                else if (componentIndex == 4) return getBitFromComponent(v_patternId4, localBitIndex);
+                else if (componentIndex == 5) return getBitFromComponent(v_patternId5, localBitIndex);
+                else if (componentIndex == 6) return getBitFromComponent(v_patternId6, localBitIndex);
+                
+                return false; // Should never reach here
             }
             
             void main() {
@@ -148,8 +188,8 @@ class BinaryPatternUniverse {
                 // Calculate bit index (0-48)
                 int bitIndex = pixelY * 7 + pixelX;
                 
-                // Get the bit value
-                bool bitValue = getBit(v_patternId, bitIndex);
+                // Get the bit value from the appropriate component
+                bool bitValue = getBit(bitIndex);
                 
                 // Color: false = black, true = white
                 float color = bitValue ? 1.0 : 0.0;
@@ -279,7 +319,13 @@ class BinaryPatternUniverse {
 
     // Create instance buffers
     this.instanceOffsetBuffer = this.gl.createBuffer();
-    this.instancePatternIdBuffer = this.gl.createBuffer();
+    this.instancePatternId0Buffer = this.gl.createBuffer();
+    this.instancePatternId1Buffer = this.gl.createBuffer();
+    this.instancePatternId2Buffer = this.gl.createBuffer();
+    this.instancePatternId3Buffer = this.gl.createBuffer();
+    this.instancePatternId4Buffer = this.gl.createBuffer();
+    this.instancePatternId5Buffer = this.gl.createBuffer();
+    this.instancePatternId6Buffer = this.gl.createBuffer();
 
     // Instance offset attribute
     const offsetAttrib = this.gl.getAttribLocation(
@@ -296,20 +342,36 @@ class BinaryPatternUniverse {
     this.gl.vertexAttribPointer(offsetAttrib, 2, this.gl.FLOAT, false, 0, 0);
     this.gl.vertexAttribDivisor(offsetAttrib, 1);
 
-    // Pattern ID attribute
-    const patternIdAttrib = this.gl.getAttribLocation(
-      this.program,
-      'a_patternId'
-    );
-    if (patternIdAttrib === -1) {
-      this.showError('Could not find a_patternId attribute');
-      return;
+    // Pattern ID component attributes
+    const patternIdAttribs = [];
+    const patternIdBuffers = [
+      this.instancePatternId0Buffer,
+      this.instancePatternId1Buffer,
+      this.instancePatternId2Buffer,
+      this.instancePatternId3Buffer,
+      this.instancePatternId4Buffer,
+      this.instancePatternId5Buffer,
+      this.instancePatternId6Buffer,
+    ];
+
+    for (let i = 0; i < 7; i++) {
+      const attribName = `a_patternId${i}`;
+      const attrib = this.gl.getAttribLocation(this.program, attribName);
+      if (attrib === -1) {
+        this.showError(`Could not find ${attribName} attribute`);
+        return;
+      }
+
+      patternIdAttribs.push(attrib);
+      this.gl.enableVertexAttribArray(attrib);
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, patternIdBuffers[i]);
+      this.gl.vertexAttribPointer(attrib, 1, this.gl.FLOAT, false, 0, 0);
+      this.gl.vertexAttribDivisor(attrib, 1);
     }
 
-    this.gl.enableVertexAttribArray(patternIdAttrib);
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instancePatternIdBuffer);
-    this.gl.vertexAttribPointer(patternIdAttrib, 1, this.gl.FLOAT, false, 0, 0);
-    this.gl.vertexAttribDivisor(patternIdAttrib, 1);
+    // Store for later use
+    this.patternIdAttribs = patternIdAttribs;
+    this.patternIdBuffers = patternIdBuffers;
 
     console.log('Geometry setup complete');
   }
@@ -342,82 +404,112 @@ class BinaryPatternUniverse {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
       this.scale *= zoomFactor;
-      this.scale = Math.max(0.01, Math.min(10, this.scale));
+      this.scale = Math.max(0.2, Math.min(10, this.scale));
     });
   }
 
   getVisiblePatterns() {
     const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
-    const visibleWidth = this.canvas.width / this.scale;
-    const visibleHeight = this.canvas.height / this.scale;
 
-    // Add some padding to reduce popping
-    const padding = patternSize * 2;
+    // Calculate the world space bounds of what's currently visible on screen
+    // Screen coordinates (0,0) to (canvas.width, canvas.height) in world space
+    const screenToWorld = (screenX, screenY) => {
+      return {
+        x: screenX / this.scale - this.translation.x,
+        y: screenY / this.scale - this.translation.y,
+      };
+    };
 
-    // Calculate world coordinates of the visible area
-    // The visible area in world coordinates starts at -translation and extends by visible dimensions
-    const worldLeft = -this.translation.x - padding;
-    const worldTop = -this.translation.y - padding;
-    const worldRight = -this.translation.x + visibleWidth + padding;
-    const worldBottom = -this.translation.y + visibleHeight + padding;
+    // Add padding to avoid popping when scrolling
+    const padding = patternSize * 3;
 
-    // Convert world coordinates to grid coordinates
-    const left = Math.floor(worldLeft / patternSize);
-    const top = Math.floor(worldTop / patternSize);
-    const right = Math.ceil(worldRight / patternSize);
-    const bottom = Math.ceil(worldBottom / patternSize);
+    // Get world coordinates of screen bounds with padding
+    const topLeft = screenToWorld(-padding, -padding);
+    const bottomRight = screenToWorld(
+      this.canvas.width + padding,
+      this.canvas.height + padding
+    );
 
-    const patterns = [];
+    // Convert world coordinates to grid indices
+    const startCol = Math.floor(topLeft.x / patternSize);
+    const startRow = Math.floor(topLeft.y / patternSize);
+    const endCol = Math.ceil(bottomRight.x / patternSize);
+    const endRow = Math.ceil(bottomRight.y / patternSize);
+
+    // Limit grid size to prevent memory issues
+    const maxGridSize = 33554432;
+    const clampedStartCol = Math.max(-maxGridSize, startCol);
+    const clampedStartRow = Math.max(-maxGridSize, startRow);
+    const clampedEndCol = Math.min(maxGridSize, endCol);
+    const clampedEndRow = Math.min(maxGridSize, endRow);
+
     const offsets = [];
-
-    // Limit the number of patterns to prevent overwhelming the GPU
+    const patternComponents = [[], [], [], [], [], [], []]; // 7 arrays for 7-bit components
     let count = 0;
-    const maxPatterns = 50000000;
+    const maxPatterns = 1000000; // Reasonable limit
 
-    // Use a more reasonable grid size for now - we can expand later
-    const maxGridSize = 1000; // This gives us 1M patterns to work with
+    // Helper function to break a large integer into 7-bit components
+    const breakInto7BitComponents = (largeInt) => {
+      const components = [];
+      for (let i = 0; i < 7; i++) {
+        components.push(largeInt & 0x7f); // Extract lowest 7 bits
+        largeInt >>= 7; // Shift right by 7 bits
+      }
+      return components;
+    };
 
+    // Generate patterns for visible grid cells
     for (
-      let row = Math.max(-maxGridSize, top);
-      row < Math.min(maxGridSize, bottom) && count < maxPatterns;
+      let row = clampedStartRow;
+      row < clampedEndRow && count < maxPatterns;
       row++
     ) {
       for (
-        let col = Math.max(-maxGridSize, left);
-        col < Math.min(maxGridSize, right) && count < maxPatterns;
+        let col = clampedStartCol;
+        col < clampedEndCol && count < maxPatterns;
         col++
       ) {
-        // Convert grid position to pattern ID
-        // For now, use a simple mapping that works with negative coordinates
-        const gridRow = row + maxGridSize; // Shift to make positive
-        const gridCol = col + maxGridSize;
-        const patternId = gridRow * (maxGridSize * 2) + gridCol;
+        // Calculate world position for this grid cell
+        const worldX = col * patternSize - this.canvas.width / 2 / this.scale;
+        const worldY = row * patternSize - this.canvas.height / 2 / this.scale;
 
-        patterns.push(patternId);
-        offsets.push(col * patternSize, row * patternSize);
+        // Create a unique pattern ID that works with negative coordinates
+        // Map from [-maxGridSize, maxGridSize] to [0, 2*maxGridSize]
+        const normalizedRow = row + maxGridSize;
+        const normalizedCol = col + maxGridSize;
+        const patternId = normalizedRow * (2 * maxGridSize) + normalizedCol;
+
+        // Break the pattern ID into 7-bit components
+        const components = breakInto7BitComponents(patternId);
+
+        // Add components to respective arrays
+        for (let i = 0; i < 7; i++) {
+          patternComponents[i].push(components[i]);
+        }
+
+        offsets.push(worldX, worldY);
         count++;
       }
     }
 
     // Update debug info
-    document.getElementById(
-      'bounds'
-    ).textContent = `Bounds: (${left}, ${top}) to (${right}, ${bottom}) | Grid: ${
-      right - left
-    }x${bottom - top} | Translation: (${Math.round(
-      this.translation.x
-    )}, ${Math.round(this.translation.y)})`;
+    document.getElementById('bounds').textContent =
+      `Grid: (${clampedStartCol},${clampedStartRow}) to (${clampedEndCol},${clampedEndRow}) | ` +
+      `Patterns: ${count} | Translation: (${Math.round(
+        this.translation.x
+      )}, ${Math.round(this.translation.y)}) | ` +
+      `Scale: ${this.scale.toFixed(2)}x`;
 
-    return { patterns, offsets, count };
+    return { patternComponents, offsets, count };
   }
 
   render() {
     // Clear the canvas
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-    const { patterns, offsets, count } = this.getVisiblePatterns();
+    const { patternComponents, offsets, count } = this.getVisiblePatterns();
 
-    if (patterns.length === 0) {
+    if (count === 0) {
       document.getElementById('debug').textContent = 'No patterns to render';
       return;
     }
@@ -430,12 +522,15 @@ class BinaryPatternUniverse {
       this.gl.DYNAMIC_DRAW
     );
 
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instancePatternIdBuffer);
-    this.gl.bufferData(
-      this.gl.ARRAY_BUFFER,
-      new Float32Array(patterns),
-      this.gl.DYNAMIC_DRAW
-    );
+    // Update all 7 pattern ID component buffers
+    for (let i = 0; i < 7; i++) {
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.patternIdBuffers[i]);
+      this.gl.bufferData(
+        this.gl.ARRAY_BUFFER,
+        new Float32Array(patternComponents[i]),
+        this.gl.DYNAMIC_DRAW
+      );
+    }
 
     // Set uniforms
     this.gl.uniform2f(
@@ -459,7 +554,7 @@ class BinaryPatternUniverse {
       6,
       this.gl.UNSIGNED_SHORT,
       0,
-      patterns.length
+      count
     );
 
     // Update debug info
