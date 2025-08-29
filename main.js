@@ -133,6 +133,7 @@ class BinaryPatternUniverse {
             
             uniform float u_patternSize;
             uniform float u_strokeWidth;
+            uniform float u_scale;
             
             out vec4 fragColor;
             
@@ -168,7 +169,11 @@ class BinaryPatternUniverse {
                     v_localPos.x > totalSize - u_strokeWidth * 0.5 ||
                     v_localPos.y < u_strokeWidth * 0.5 || 
                     v_localPos.y > totalSize - u_strokeWidth * 0.5) {
-                    fragColor = vec4(1.0, 0.2, 0.2, 1.0); // Red stroke
+                    // Calculate alpha based on scale - more transparent when zoomed out (low scale)
+                    // At scale 1.0, alpha = 1.0 (fully opaque)
+                    // At scale 0.2, alpha = 0.2 (very transparent)
+                    float alpha = clamp(u_scale * 0.8 + 0.2, 0.2, 1.0);
+                    fragColor = vec4(1.0, 0.2, 0.2, alpha); // Red stroke with variable transparency
                     return;
                 }
                 
@@ -473,7 +478,6 @@ class BinaryPatternUniverse {
 
     // Limit grid size to prevent memory issues
     const maxGridSize = 33554432;
-    // const maxGridSize = 1000;
     let clampedStartCol = Math.max(-maxGridSize, startCol);
     let clampedStartRow = Math.max(-maxGridSize, startRow);
     let clampedEndCol = Math.min(maxGridSize, endCol);
@@ -519,9 +523,10 @@ class BinaryPatternUniverse {
 
         // Create a unique pattern ID that works with negative coordinates
         // Map from [-maxGridSize, maxGridSize] to [0, 2*maxGridSize]
+        // Map from [-maxGridSize, maxGridSize] to [0, maxGridSize]
         const normalizedRow = row + maxGridSize;
         const normalizedCol = col + maxGridSize;
-        const patternId = normalizedRow * (2 * maxGridSize) + normalizedCol;
+        const patternId = normalizedRow * maxGridSize + normalizedCol;
 
         // Break the pattern ID into 7-bit components
         const components = breakInto7BitComponents(patternId);
@@ -532,6 +537,7 @@ class BinaryPatternUniverse {
         }
 
         offsets.push(worldX, worldY);
+        }
         count++;
       }
     }
