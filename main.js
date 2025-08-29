@@ -1,3 +1,43 @@
+const plusPattern = [
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [1, 1, 1, 1, 1, 1, 1],
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+];
+
+const diagonalPattern = [
+  [1, 0, 0, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 0, 1, 0, 0],
+  [0, 0, 0, 0, 0, 1, 0],
+  [0, 0, 0, 0, 0, 0, 1],
+];
+
+const PATTERN_FS = [
+  [1, 0, 1, 1, 1, 1, 1],
+  [1, 0, 1, 0, 0, 0, 0],
+  [1, 0, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 0, 1, 1],
+  [1, 0, 1, 0, 0, 0, 0],
+  [1, 1, 1, 1, 1, 1, 1],
+];
+
+const PATTERN_FS_INV = [
+  [0, 1, 0, 0, 0, 0, 0],
+  [0, 1, 0, 1, 1, 1, 1],
+  [0, 1, 0, 0, 0, 0, 0],
+  [0, 1, 1, 1, 1, 1, 0],
+  [0, 1, 0, 1, 1, 0, 0],
+  [0, 1, 0, 1, 1, 1, 1],
+  [0, 0, 0, 0, 0, 0, 0],
+];
+
 class BinaryPatternUniverse {
   constructor() {
     this.canvas = document.getElementById('canvas');
@@ -17,6 +57,7 @@ class BinaryPatternUniverse {
     this.GRID_COLS = Math.pow(2, 25); // 33,554,432
     this.PATTERN_SIZE = 20; // Size of each 7x7 pattern in pixels
     this.STROKE_WIDTH = 0.1; // Border width between patterns
+    this.SCALE_RANGE = [0.3, 10]; // Range of zoom levels
 
     // Camera state - start at origin for debugging
     this.translation = {
@@ -434,7 +475,10 @@ class BinaryPatternUniverse {
       // Apply zoom
       const oldScale = this.scale;
       this.scale *= zoomFactor;
-      this.scale = Math.max(0.2, Math.min(10, this.scale));
+      this.scale = Math.max(
+        this.SCALE_RANGE[0],
+        Math.min(this.SCALE_RANGE[1], this.scale)
+      );
 
       // Convert NDC to world coordinates after zoom
       const worldPosAfterZoom = {
@@ -477,7 +521,7 @@ class BinaryPatternUniverse {
     const endRow = Math.ceil(bottomRight.y / patternSize);
 
     // Limit grid size to prevent memory issues
-    const maxGridSize = 33554432;
+    const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
     let clampedStartCol = Math.max(-maxGridSize, startCol);
     let clampedStartRow = Math.max(-maxGridSize, startRow);
     let clampedEndCol = Math.min(maxGridSize, endCol);
@@ -497,11 +541,11 @@ class BinaryPatternUniverse {
     const maxPatterns = 1000000; // Reasonable limit
 
     // Helper function to break a large integer into 7-bit components
-    const breakInto7BitComponents = (largeInt) => {
+    const breakLargeIndexInto7BitComponents = (largeIdx) => {
       const components = [];
       for (let i = 0; i < 7; i++) {
-        components.push(largeInt & 0x7f); // Extract lowest 7 bits
-        largeInt >>= 7; // Shift right by 7 bits
+        components.push(largeIdx & 0x7f); // Extract lowest 7 bits
+        largeIdx >>= 7; // Shift right by 7 bits
       }
       return components;
     };
@@ -528,7 +572,7 @@ class BinaryPatternUniverse {
         const patternId = normalizedRow * maxGridSize + normalizedCol;
 
         // Break the pattern ID into 7-bit components
-        const components = breakInto7BitComponents(patternId);
+        const components = breakLargeIndexInto7BitComponents(patternId);
 
         // Add components to respective arrays
         for (let i = 0; i < 7; i++) {
@@ -626,6 +670,57 @@ class BinaryPatternUniverse {
       requestAnimationFrame(renderFrame);
     };
     renderFrame();
+  }
+
+  /**
+   * Converts a 7x7 binary pattern to 7-bit components
+   * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
+   * @returns {number[]} Array of 7 numbers, each representing 7 bits of the pattern
+   */
+  static binaryPatternTo7BitComponents(binaryPattern) {
+    if (!Array.isArray(binaryPattern) || binaryPattern.length !== 7) {
+      throw new Error('Input must be a 7x7 array');
+    }
+
+    for (let row = 0; row < 7; row++) {
+      if (
+        !Array.isArray(binaryPattern[row]) ||
+        binaryPattern[row].length !== 7
+      ) {
+        throw new Error('Each row must be an array of length 7');
+      }
+      for (let col = 0; col < 7; col++) {
+        const value = binaryPattern[row][col];
+        if (value !== 0 && value !== 1) {
+          throw new Error(
+            `All values must be 0 or 1, found ${value} at position [${row}][${col}]`
+          );
+        }
+      }
+    }
+
+    // Convert 7x7 pattern to 49-bit integer, then split into 7-bit components
+    const components = [];
+
+    // Process each 7-bit component
+    for (let componentIndex = 0; componentIndex < 7; componentIndex++) {
+      let componentValue = 0;
+
+      // Each component handles 7 bits of the pattern
+      for (let bitIndex = 0; bitIndex < 7; bitIndex++) {
+        const globalBitIndex = componentIndex * 7 + bitIndex;
+        const row = Math.floor(globalBitIndex / 7);
+        const col = globalBitIndex % 7;
+
+        if (binaryPattern[row][col] === 1) {
+          componentValue |= 1 << bitIndex;
+        }
+      }
+
+      components.push(componentValue);
+    }
+
+    return components;
   }
 }
 
