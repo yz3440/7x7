@@ -9,11 +9,11 @@ const PATTERN_EMPTY = [
 ];
 
 const PATTERN_TEST = [
-  [0, 0, 1, 1, 1, 1, 1],
+  [0, 1, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 0, 0],
-  [0, 0, 1, 1, 0, 0, 0],
+  [1, 1, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
 ];
@@ -43,9 +43,19 @@ const PATTERN_DIAGONAL = [
   [0, 1, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0],
   [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
+];
+
+const PATTERN_DIAGONAL_TEST = [
+  [1, 0, 0, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 0, 1, 0, 0],
-  [0, 0, 0, 0, 0, 1, 0],
-  [0, 0, 0, 0, 0, 0, 1],
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
 ];
 
 const PATTERN_FS = [
@@ -520,8 +530,10 @@ class BinaryPatternUniverse {
         const dy = e.clientY - this.lastMousePos.y;
 
         // Update camera world position in double precision
-        this.cameraWorldPosition.x -= dx / this.scale;
-        this.cameraWorldPosition.y -= dy / this.scale;
+        // When we drag right, we want to see content to the left (camera moves left)
+        // When we drag down, we want to see content above (camera moves up)
+        this.cameraWorldPosition.x += dx / this.scale;
+        this.cameraWorldPosition.y += dy / this.scale;
 
         // Update relative translation
         this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
@@ -590,7 +602,7 @@ class BinaryPatternUniverse {
 
       // Update camera world position to compensate
       this.cameraWorldPosition.x += deltaX;
-      this.cameraWorldPosition.y -= deltaY;
+      this.cameraWorldPosition.y += deltaY;
 
       // Update relative translation
       this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
@@ -606,7 +618,7 @@ class BinaryPatternUniverse {
       flyToFSButton.addEventListener('click', () => {
         console.log('flyToFSButton clicked');
 
-        this.flyToPattern(PATTERN_FS);
+        this.flyToPattern(PATTERN_DIAGONAL_TEST);
       });
     }
 
@@ -854,7 +866,9 @@ class BinaryPatternUniverse {
 
     let patternId = 0;
     for (let i = 0; i < 7; i++) {
+      console.log(`Component ${i} ${components[i]}`);
       patternId |= (components[i] & 0x7f) << (i * 7); // Each component contributes 7 bits
+      console.log(`Cumulative ID ${patternId}`);
     }
     return patternId;
   }
@@ -870,9 +884,9 @@ class BinaryPatternUniverse {
     // Reverse the calculation: patternId = normalizedRow * maxGridSize + normalizedCol
     let normalizedRow = Math.floor(patternId / maxGridSize);
     let normalizedCol = patternId % maxGridSize;
-    if (normalizedCol > maxGridSize / 2) {
-      normalizedCol -= maxGridSize;
-    }
+    // if (normalizedCol > maxGridSize / 2) {
+    //   normalizedCol -= maxGridSize;
+    // }
 
     // Reverse the normalization: normalizedRow = row + maxGridSize
     const row = normalizedRow;
@@ -904,13 +918,13 @@ class BinaryPatternUniverse {
     // Convert pattern to components
     const components =
       BinaryPatternUniverse.binaryPatternTo7BitComponents(binaryPattern);
-
+    console.log(`Found components ${components}`);
     // Convert components to pattern ID
     const patternId = BinaryPatternUniverse.componentsToPatternId(components);
-
+    console.log(`Found pattern ID ${patternId}`);
     // Convert pattern ID to row/col
     const { row, col } = this.patternIdToRowCol(patternId);
-    console.log(row, col);
+    console.log(`Found pattern at row ${row}, col ${col}`);
     // Convert row/col to world position
     return this.rowColToWorldPos(row, col);
   }
@@ -1006,7 +1020,7 @@ class BinaryPatternUniverse {
 window.addEventListener('load', () => {
   try {
     window.universe = new BinaryPatternUniverse();
-    window.universe.flyToPattern(PATTERN_TEST);
+    window.universe.flyToPattern(PATTERN_DIAGONAL);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
