@@ -563,7 +563,7 @@ class BinaryPatternUniverse {
 
       // Convert screen to NDC, accounting for the Y flip in the shader
       const ndcX = cursorX / (this.canvas.width * 0.5) - 1.0;
-      const ndcY = -(cursorY / (this.canvas.height * 0.5) - 1.0); // Apply Y flip to match shader
+      const ndcY = cursorY / (this.canvas.height * 0.5) - 1.0; // Apply Y flip to match shader
 
       // Convert NDC to world coordinates before zoom (relative to shifted origin)
       const relWorldPosBeforeZoom = {
