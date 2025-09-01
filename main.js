@@ -12,8 +12,8 @@ const PATTERN_TEST = [
   [0, 0, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 1, 1],
   [1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 1, 1, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
+  [1, 1, 1, 1, 1, 0, 0],
+  [0, 0, 1, 1, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
 ];
@@ -90,10 +90,26 @@ class BinaryPatternUniverse {
     this.SCALE_RANGE = [0.3, 20]; // Range of zoom levels
 
     // Camera state - start at origin for debugging
+    // We track the true world position in double precision
+    this.cameraWorldPosition = {
+      x: 0.0,
+      y: 0.0,
+    };
+
+    // The origin shift offset - this gets subtracted from all world positions
+    // to keep values near zero for the shader
+    this.originShift = {
+      x: 0.0,
+      y: 0.0,
+    };
+
+    // The relative camera position (cameraWorldPosition - originShift)
+    // This is what we pass to the shader
     this.translation = {
       x: 0,
       y: 0,
     };
+
     this.scale = 1.0;
 
     // Mouse state
@@ -456,6 +472,41 @@ class BinaryPatternUniverse {
     console.log('Geometry setup complete');
   }
 
+  /**
+   * Updates the origin shift to keep camera near origin
+   * This prevents floating point precision issues in the shader
+   */
+  updateOriginShift() {
+    // Threshold for shifting - when camera is more than this distance from origin
+    const SHIFT_THRESHOLD = 10000.0;
+
+    // Check if we need to shift the origin
+    const distFromOrigin = Math.sqrt(
+      this.translation.x * this.translation.x +
+        this.translation.y * this.translation.y
+    );
+
+    if (distFromOrigin > SHIFT_THRESHOLD) {
+      // Shift the origin to the current camera position
+      // Round to pattern size to avoid sub-pixel shifting artifacts
+      const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
+      const shiftX = Math.round(this.translation.x / patternSize) * patternSize;
+      const shiftY = Math.round(this.translation.y / patternSize) * patternSize;
+
+      // Update origin shift (in double precision)
+      this.originShift.x += shiftX;
+      this.originShift.y += shiftY;
+
+      // Update relative translation (camera position relative to new origin)
+      this.translation.x -= shiftX;
+      this.translation.y -= shiftY;
+
+      console.log(
+        `Origin shifted by (${shiftX}, ${shiftY}). New origin: (${this.originShift.x}, ${this.originShift.y})`
+      );
+    }
+  }
+
   setupEventListeners() {
     // Mouse events
     this.canvas.addEventListener('mousedown', (e) => {
@@ -468,8 +519,16 @@ class BinaryPatternUniverse {
         const dx = e.clientX - this.lastMousePos.x;
         const dy = e.clientY - this.lastMousePos.y;
 
-        this.translation.x += dx / this.scale;
-        this.translation.y += dy / this.scale;
+        // Update camera world position in double precision
+        this.cameraWorldPosition.x -= dx / this.scale;
+        this.cameraWorldPosition.y -= dy / this.scale;
+
+        // Update relative translation
+        this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+        this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+        // Check if we need to shift the origin
+        this.updateOriginShift();
 
         this.lastMousePos = { x: e.clientX, y: e.clientY };
       }
@@ -489,21 +548,20 @@ class BinaryPatternUniverse {
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
 
-      // Convert screen coordinates to world coordinates
-      // This needs to match the inverse of the shader transformation:
-      // Shader: worldPos = (worldPos + translation) * scale
-      //         ndc = worldPos / (resolution * 0.5)
-      //         ndc.y = -ndc.y (Y flip)
-      // Inverse: worldPos = (ndc * resolution * 0.5) / scale - translation
-
       // Convert screen to NDC, accounting for the Y flip in the shader
       const ndcX = cursorX / (this.canvas.width * 0.5) - 1.0;
       const ndcY = -(cursorY / (this.canvas.height * 0.5) - 1.0); // Apply Y flip to match shader
 
-      // Convert NDC to world coordinates before zoom
-      const worldPosBeforeZoom = {
+      // Convert NDC to world coordinates before zoom (relative to shifted origin)
+      const relWorldPosBeforeZoom = {
         x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
         y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
+      };
+
+      // Get absolute world position (add back the origin shift)
+      const absWorldPosBeforeZoom = {
+        x: relWorldPosBeforeZoom.x + this.originShift.x,
+        y: relWorldPosBeforeZoom.y + this.originShift.y,
       };
 
       // Apply zoom
@@ -514,15 +572,32 @@ class BinaryPatternUniverse {
         Math.min(this.SCALE_RANGE[1], this.scale)
       );
 
-      // Convert NDC to world coordinates after zoom
-      const worldPosAfterZoom = {
+      // Convert NDC to world coordinates after zoom (relative to shifted origin)
+      const relWorldPosAfterZoom = {
         x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
         y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
       };
 
-      // Adjust translation to keep the cursor position stable
-      this.translation.x += worldPosAfterZoom.x - worldPosBeforeZoom.x;
-      this.translation.y -= worldPosAfterZoom.y - worldPosBeforeZoom.y;
+      // Get absolute world position after zoom
+      const absWorldPosAfterZoom = {
+        x: relWorldPosAfterZoom.x + this.originShift.x,
+        y: relWorldPosAfterZoom.y + this.originShift.y,
+      };
+
+      // Calculate the difference in absolute world positions
+      const deltaX = absWorldPosAfterZoom.x - absWorldPosBeforeZoom.x;
+      const deltaY = absWorldPosAfterZoom.y - absWorldPosBeforeZoom.y;
+
+      // Update camera world position to compensate
+      this.cameraWorldPosition.x += deltaX;
+      this.cameraWorldPosition.y -= deltaY;
+
+      // Update relative translation
+      this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+      this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+      // Check if we need to shift the origin
+      this.updateOriginShift();
     });
 
     // Fly to FS button
@@ -531,7 +606,44 @@ class BinaryPatternUniverse {
       flyToFSButton.addEventListener('click', () => {
         console.log('flyToFSButton clicked');
 
-        this.flyToPattern(PATTERN_EMPTY);
+        this.flyToPattern(PATTERN_FS);
+      });
+    }
+
+    // Test large translation button
+    const testLargeTranslationButton = document.getElementById(
+      'testLargeTranslationButton'
+    );
+    if (testLargeTranslationButton) {
+      testLargeTranslationButton.addEventListener('click', () => {
+        console.log('Testing large translation...');
+
+        // Move camera to a position that would cause precision issues without origin shifting
+        // Let's go to x = 10 million, y = 5 million
+        const largeX = 10000000;
+        const largeY = 5000000;
+
+        // Update camera world position
+        this.cameraWorldPosition.x = largeX;
+        this.cameraWorldPosition.y = largeY;
+
+        // Update relative translation
+        this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+        this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+        // Check if we need to shift the origin
+        this.updateOriginShift();
+
+        // Also set a reasonable zoom
+        this.scale = 1.0;
+
+        console.log(`Moved to large position (${largeX}, ${largeY})`);
+        console.log(
+          `Origin shift: (${this.originShift.x}, ${this.originShift.y})`
+        );
+        console.log(
+          `Relative translation: (${this.translation.x}, ${this.translation.y})`
+        );
       });
     }
   }
@@ -540,8 +652,8 @@ class BinaryPatternUniverse {
     const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
 
     // Calculate the world space bounds of what's currently visible on screen
-    // Screen coordinates (0,0) to (canvas.width, canvas.height) in world space
-    const screenToWorld = (screenX, screenY) => {
+    // We work in relative coordinates (relative to shifted origin)
+    const screenToRelativeWorld = (screenX, screenY) => {
       return {
         x: screenX / this.scale - this.translation.x,
         y: screenY / this.scale - this.translation.y,
@@ -551,18 +663,28 @@ class BinaryPatternUniverse {
     // Add padding to avoid popping when scrolling
     const padding = patternSize * 3;
 
-    // Get world coordinates of screen bounds with padding
-    const topLeft = screenToWorld(-padding, -padding);
-    const bottomRight = screenToWorld(
+    // Get relative world coordinates of screen bounds with padding
+    const relTopLeft = screenToRelativeWorld(-padding, -padding);
+    const relBottomRight = screenToRelativeWorld(
       this.canvas.width + padding,
       this.canvas.height + padding
     );
 
-    // Convert world coordinates to grid indices
-    const startCol = Math.floor(topLeft.x / patternSize);
-    const startRow = Math.floor(topLeft.y / patternSize);
-    const endCol = Math.ceil(bottomRight.x / patternSize);
-    const endRow = Math.ceil(bottomRight.y / patternSize);
+    // Convert to absolute world coordinates by adding origin shift
+    const absTopLeft = {
+      x: relTopLeft.x + this.originShift.x,
+      y: relTopLeft.y + this.originShift.y,
+    };
+    const absBottomRight = {
+      x: relBottomRight.x + this.originShift.x,
+      y: relBottomRight.y + this.originShift.y,
+    };
+
+    // Convert absolute world coordinates to grid indices
+    const startCol = Math.floor(absTopLeft.x / patternSize);
+    const startRow = Math.floor(absTopLeft.y / patternSize);
+    const endCol = Math.ceil(absBottomRight.x / patternSize);
+    const endRow = Math.ceil(absBottomRight.y / patternSize);
 
     // Limit grid size to prevent memory issues
     const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
@@ -595,9 +717,13 @@ class BinaryPatternUniverse {
         col < clampedEndCol && count < maxPatterns;
         col++
       ) {
-        // Calculate world position for this grid cell
-        const worldX = col * patternSize;
-        const worldY = row * patternSize;
+        // Calculate absolute world position for this grid cell
+        const absWorldX = col * patternSize;
+        const absWorldY = row * patternSize;
+
+        // Convert to relative position (subtract origin shift)
+        const relWorldX = absWorldX - this.originShift.x;
+        const relWorldY = absWorldY - this.originShift.y;
 
         // Create a unique pattern ID that works with negative coordinates
         // Map from [-maxGridSize, maxGridSize] to [0, maxGridSize]
@@ -618,7 +744,8 @@ class BinaryPatternUniverse {
           patternComponents[i].push(components[i]);
         }
 
-        offsets.push(worldX, worldY);
+        // Use relative positions for the shader
+        offsets.push(relWorldX, relWorldY);
 
         count++;
       }
@@ -627,9 +754,9 @@ class BinaryPatternUniverse {
     // Update debug info
     document.getElementById('bounds').textContent =
       `Grid: (${clampedStartCol},${clampedStartRow}) to (${clampedEndCol},${clampedEndRow}) | ` +
-      `Patterns: ${count} | Translation: (${Math.round(
-        this.translation.x
-      )}, ${Math.round(this.translation.y)}) | ` +
+      `Patterns: ${count} | World Pos: (${Math.round(
+        this.cameraWorldPosition.x
+      )}, ${Math.round(this.cameraWorldPosition.y)}) | ` +
       `Scale: ${this.scale.toFixed(2)}x`;
 
     return { patternComponents, offsets, count };
@@ -698,8 +825,12 @@ class BinaryPatternUniverse {
   updateInfo() {
     const coords = document.getElementById('coords');
     coords.textContent = `Position: (${Math.round(
-      this.translation.x
-    )}, ${Math.round(this.translation.y)}) | Zoom: ${this.scale.toFixed(3)}x`;
+      this.cameraWorldPosition.x
+    )}, ${Math.round(this.cameraWorldPosition.y)}) | Zoom: ${this.scale.toFixed(
+      3
+    )}x | Origin Shift: (${Math.round(this.originShift.x)}, ${Math.round(
+      this.originShift.y
+    )})`;
   }
 
   startRenderLoop() {
@@ -793,12 +924,21 @@ class BinaryPatternUniverse {
     this.scale = 20;
     const worldPos = this.findPatternWorldPosition(binaryPattern);
 
-    // Center the pattern on screen by setting translation
-    // The pattern should appear at the center of the screen
-    // Screen center in world coordinates should be at worldPos
-    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
-    this.translation.x = -worldPos.x;
-    this.translation.y = -worldPos.y;
+    // Update camera world position to center the pattern
+    this.cameraWorldPosition.x = worldPos.x;
+    this.cameraWorldPosition.y = worldPos.y;
+
+    // Reset origin shift to camera position to maximize precision
+    this.originShift.x = worldPos.x;
+    this.originShift.y = worldPos.y;
+
+    // Relative translation is now zero since camera is at origin
+    this.translation.x = 0;
+    this.translation.y = 0;
+
+    console.log(
+      `Flew to pattern at world position (${worldPos.x}, ${worldPos.y})`
+    );
   }
   // Helper function to break a large integer into 7-bit components
   static breakLargeIndexInto7BitComponents(largeIdx) {
@@ -866,7 +1006,7 @@ class BinaryPatternUniverse {
 window.addEventListener('load', () => {
   try {
     window.universe = new BinaryPatternUniverse();
-    window.universe.flyToPattern(PATTERN_FS);
+    window.universe.flyToPattern(PATTERN_TEST);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
