@@ -16,14 +16,13 @@
       canvas {
         display: block;
         cursor: grab;
-        border: 1px solid #444;
       }
 
       canvas:active {
         cursor: grabbing;
       }
 
-      .info {
+      .debug-info {
         position: absolute;
         top: 10px;
         left: 10px;
@@ -35,6 +34,22 @@
         max-width: 350px;
       }
 
+      .user-info {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        color: white;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px 0;
+        font-size: 14px;
+        font-family: monospace;
+        z-index: 1000;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        text-align: center;
+      }
+
       .error {
         color: #ff6b6b;
         background: rgba(255, 0, 0, 0.1);
@@ -43,34 +58,113 @@
         border-radius: 3px;
       }
 
-      .controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.8);
+      .drawing-panel {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #444;
+        border-radius: 8px;
         padding: 15px;
-        border-radius: 5px;
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       }
 
-      .fly-button {
-        background: #4caf50;
+      .drawing-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
         color: white;
-        border: none;
-        padding: 10px 15px;
         font-size: 14px;
+        font-weight: bold;
+      }
+
+      .drawing-controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .drawing-controls button {
+        background: #333;
+        border: 1px solid #555;
+        color: white;
+        padding: 4px 8px;
         border-radius: 4px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        font-size: 12px;
+        transition: background-color 0.2s;
       }
 
-      .fly-button:hover {
-        background: #45a049;
+      .drawing-controls button:hover {
+        background: #555;
+      }
+
+      .drawing-controls button:active {
+        background: #222;
+      }
+
+      #drawing-canvas {
+        display: block;
+        border: 2px solid #666;
+        border-radius: 4px;
+        cursor: pointer;
+        background: white;
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 768px) {
+        .drawing-panel {
+          bottom: 10px;
+          right: 10px;
+          padding: 10px;
+          max-width: calc(100vw - 40px);
+        }
+
+        #drawing-canvas {
+          width: 150px;
+          height: 150px;
+        }
+
+        .drawing-header {
+          font-size: 12px;
+        }
+
+        .drawing-controls button {
+          padding: 3px 6px;
+          font-size: 11px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .drawing-panel {
+          bottom: 5px;
+          right: 5px;
+          padding: 8px;
+        }
+
+        #drawing-canvas {
+          width: 120px;
+          height: 120px;
+        }
+
+        .drawing-header {
+          font-size: 11px;
+          flex-direction: column;
+          gap: 5px;
+          align-items: flex-start;
+        }
+
+        .drawing-controls {
+          align-self: stretch;
+          justify-content: space-between;
+        }
       }
     </style>
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <div class="info">
+    <div class="debug-info" hidden>
       <div>Total patterns: 2^49 = 562,949,953,421,312</div>
       <div>Grid: 2^24 rows × 2^25 columns</div>
       <div id="coords">Position: (0, 0) | Zoom: 1.0x</div>
@@ -79,15 +173,22 @@
       <div id="error-log"></div>
     </div>
 
-    <div class="controls">
-      <button id="flyToFSButton" class="fly-button">Fly to FS</button>
-      <button
-        id="testLargeTranslationButton"
-        class="fly-button"
-        style="margin-top: 10px"
-      >
-        Test Large Translation
-      </button>
+    <div class="user-info">
+      <div id="user-x">x: 0</div>
+      <div id="user-y">y: 0</div>
+      <div id="user-zoom">zoom: 1.0x</div>
+    </div>
+
+    <!-- Drawing Canvas -->
+    <div class="drawing-panel">
+      <div class="drawing-header">
+        <span>Draw 7x7 Pattern</span>
+        <div class="drawing-controls">
+          <button id="clear-pattern" title="Clear Pattern">Clear</button>
+          <button id="find-pattern" title="Find This Pattern">Find</button>
+        </div>
+      </div>
+      <canvas id="drawing-canvas" width="210" height="210"></canvas>
     </div>
 
     <script src="main.js"></script>

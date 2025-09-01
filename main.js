@@ -1,3 +1,6 @@
+// Configuration
+const SHOW_DEBUG_PANEL = false; // Set to true to show the floating debug panel
+
 const PATTERN_EMPTY = [
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
@@ -72,6 +75,14 @@ class BinaryPatternUniverse {
   constructor() {
     this.canvas = document.getElementById('canvas');
     this.errorLog = document.getElementById('error-log');
+
+    // Show debug panel if configured
+    if (SHOW_DEBUG_PANEL) {
+      const debugPanel = document.querySelector('.debug-info');
+      if (debugPanel) {
+        debugPanel.hidden = false;
+      }
+    }
 
     // Check WebGL2 support
     this.gl = this.canvas.getContext('webgl2');
@@ -601,51 +612,6 @@ class BinaryPatternUniverse {
       // Check if we need to shift the origin
       this.updateOriginShift();
     });
-
-    // Fly to FS button
-    const flyToFSButton = document.getElementById('flyToFSButton');
-    if (flyToFSButton) {
-      flyToFSButton.addEventListener('click', () => {
-        this.flyToPattern(PATTERN_FS);
-      });
-    }
-
-    // Test large translation button
-    const testLargeTranslationButton = document.getElementById(
-      'testLargeTranslationButton'
-    );
-    if (testLargeTranslationButton) {
-      testLargeTranslationButton.addEventListener('click', () => {
-        console.log('Testing large translation...');
-
-        // Move camera to a position that would cause precision issues without origin shifting
-        // Let's go to x = 10 million, y = 5 million
-        const largeX = 10000000;
-        const largeY = 5000000;
-
-        // Update camera world position
-        this.cameraWorldPosition.x = largeX;
-        this.cameraWorldPosition.y = largeY;
-
-        // Update relative translation
-        this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
-        this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
-
-        // Check if we need to shift the origin
-        this.updateOriginShift();
-
-        // Also set a reasonable zoom
-        this.scale = 1.0;
-
-        console.log(`Moved to large position (${largeX}, ${largeY})`);
-        console.log(
-          `Origin shift: (${this.originShift.x}, ${this.originShift.y})`
-        );
-        console.log(
-          `Relative translation: (${this.translation.x}, ${this.translation.y})`
-        );
-      });
-    }
   }
 
   getVisiblePatterns() {
@@ -752,12 +718,14 @@ class BinaryPatternUniverse {
     }
 
     // Update debug info
-    document.getElementById('bounds').textContent =
-      `Grid: (${clampedStartCol},${clampedStartRow}) to (${clampedEndCol},${clampedEndRow}) | ` +
-      `Patterns: ${count} | World Pos: (${Math.round(
-        this.cameraWorldPosition.x
-      )}, ${Math.round(this.cameraWorldPosition.y)}) | ` +
-      `Scale: ${this.scale.toFixed(2)}x`;
+    if (SHOW_DEBUG_PANEL) {
+      document.getElementById('bounds').textContent =
+        `Grid: (${clampedStartCol},${clampedStartRow}) to (${clampedEndCol},${clampedEndRow}) | ` +
+        `Patterns: ${count} | World Pos: (${Math.round(
+          this.cameraWorldPosition.x
+        )}, ${Math.round(this.cameraWorldPosition.y)}) | ` +
+        `Scale: ${this.scale.toFixed(2)}x`;
+    }
 
     return { patternComponents, offsets, count };
   }
@@ -769,7 +737,9 @@ class BinaryPatternUniverse {
     const { patternComponents, offsets, count } = this.getVisiblePatterns();
 
     if (count === 0) {
-      document.getElementById('debug').textContent = 'No patterns to render';
+      if (SHOW_DEBUG_PANEL) {
+        document.getElementById('debug').textContent = 'No patterns to render';
+      }
       return;
     }
 
@@ -817,20 +787,40 @@ class BinaryPatternUniverse {
     );
 
     // Update debug info
-    document.getElementById(
-      'debug'
-    ).textContent = `Rendering: ${count} patterns`;
+    if (SHOW_DEBUG_PANEL) {
+      document.getElementById(
+        'debug'
+      ).textContent = `Rendering: ${count} patterns`;
+    }
   }
 
   updateInfo() {
-    const coords = document.getElementById('coords');
-    coords.textContent = `Position: (${Math.round(
-      this.cameraWorldPosition.x
-    )}, ${Math.round(this.cameraWorldPosition.y)}) | Zoom: ${this.scale.toFixed(
-      3
-    )}x | Origin Shift: (${Math.round(this.originShift.x)}, ${Math.round(
-      this.originShift.y
-    )})`;
+    // Always update user info panel
+    const userX = document.getElementById('user-x');
+    const userY = document.getElementById('user-y');
+    const userZoom = document.getElementById('user-zoom');
+
+    if (userX) {
+      userX.textContent = `x: ${-Math.round(this.cameraWorldPosition.x)}`;
+    }
+    if (userY) {
+      userY.textContent = `y: ${-Math.round(this.cameraWorldPosition.y)}`;
+    }
+    if (userZoom) {
+      userZoom.textContent = `zoom: ${this.scale.toFixed(2)}x`;
+    }
+
+    // Update debug info panel only if enabled
+    if (SHOW_DEBUG_PANEL) {
+      const coords = document.getElementById('coords');
+      coords.textContent = `Position: (${Math.round(
+        this.cameraWorldPosition.x
+      )}, ${Math.round(
+        this.cameraWorldPosition.y
+      )}) | Zoom: ${this.scale.toFixed(3)}x | Origin Shift: (${Math.round(
+        this.originShift.x
+      )}, ${Math.round(this.originShift.y)})`;
+    }
   }
 
   startRenderLoop() {
@@ -1017,11 +1007,204 @@ class BinaryPatternUniverse {
   }
 }
 
+// Drawing Canvas Class
+class DrawingCanvas {
+  constructor() {
+    this.canvas = document.getElementById('drawing-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.gridSize = 7;
+    this.cellSize = 30; // Each cell is 30x30 pixels (210/7)
+
+    // Initialize pattern data structure - 7x7 array with 0s and 1s
+    this.pattern = Array(7)
+      .fill()
+      .map(() => Array(7).fill(0));
+
+    // Mouse state
+    this.isDrawing = false;
+    this.currentDrawValue = 1; // What value to draw (0 or 1)
+
+    this.init();
+  }
+
+  init() {
+    this.setupEventListeners();
+    this.draw();
+  }
+
+  setupEventListeners() {
+    // Mouse events for drawing
+    this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
+    this.canvas.addEventListener('mouseleave', () => this.handleMouseUp());
+
+    // Touch events for mobile
+    this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+    this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+    this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+    // Button events
+    document
+      .getElementById('clear-pattern')
+      .addEventListener('click', () => this.clearPattern());
+    document
+      .getElementById('find-pattern')
+      .addEventListener('click', () => this.findPattern());
+  }
+
+  getCanvasPosition(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  }
+
+  getCellFromPosition(x, y) {
+    const col = Math.floor(x / this.cellSize);
+    const row = Math.floor(y / this.cellSize);
+
+    return {
+      row: Math.max(0, Math.min(6, row)),
+      col: Math.max(0, Math.min(6, col)),
+    };
+  }
+
+  handleMouseDown(e) {
+    e.preventDefault();
+    this.isDrawing = true;
+
+    const pos = this.getCanvasPosition(e.clientX, e.clientY);
+    const cell = this.getCellFromPosition(pos.x, pos.y);
+
+    // Determine what value to draw based on current cell state
+    this.currentDrawValue = this.pattern[cell.row][cell.col] === 0 ? 1 : 0;
+
+    this.setCell(cell.row, cell.col, this.currentDrawValue);
+  }
+
+  handleMouseMove(e) {
+    if (!this.isDrawing) return;
+
+    e.preventDefault();
+    const pos = this.getCanvasPosition(e.clientX, e.clientY);
+    const cell = this.getCellFromPosition(pos.x, pos.y);
+
+    this.setCell(cell.row, cell.col, this.currentDrawValue);
+  }
+
+  handleMouseUp() {
+    this.isDrawing = false;
+  }
+
+  handleTouchStart(e) {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      this.handleMouseDown({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => {},
+      });
+    }
+  }
+
+  handleTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 1 && this.isDrawing) {
+      const touch = e.touches[0];
+      this.handleMouseMove({
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => {},
+      });
+    }
+  }
+
+  handleTouchEnd(e) {
+    e.preventDefault();
+    this.handleMouseUp();
+  }
+
+  setCell(row, col, value) {
+    if (row >= 0 && row < 7 && col >= 0 && col < 7) {
+      this.pattern[row][col] = value;
+      this.draw();
+    }
+  }
+
+  clearPattern() {
+    this.pattern = Array(7)
+      .fill()
+      .map(() => Array(7).fill(0));
+    this.draw();
+  }
+
+  findPattern() {
+    if (window.universe) {
+      window.universe.flyToPattern(this.pattern);
+    }
+  }
+
+  draw() {
+    // Clear canvas
+    this.ctx.fillStyle = '#f0f0f0';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw grid and pattern
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 7; col++) {
+        const x = col * this.cellSize;
+        const y = row * this.cellSize;
+
+        // Fill cell based on pattern value
+        this.ctx.fillStyle =
+          this.pattern[row][col] === 1 ? '#ffffff' : '#000000';
+        this.ctx.fillRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
+
+        // Draw cell border
+        this.ctx.strokeStyle = '#cccccc';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
+      }
+    }
+
+    // Draw outer border
+    this.ctx.strokeStyle = '#999999';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  // Get the current pattern as a 7x7 array
+  getPattern() {
+    return this.pattern.map((row) => [...row]); // Return a deep copy
+  }
+
+  // Set the pattern from a 7x7 array
+  setPattern(newPattern) {
+    if (Array.isArray(newPattern) && newPattern.length === 7) {
+      for (let row = 0; row < 7; row++) {
+        if (Array.isArray(newPattern[row]) && newPattern[row].length === 7) {
+          for (let col = 0; col < 7; col++) {
+            this.pattern[row][col] = newPattern[row][col] === 1 ? 1 : 0;
+          }
+        }
+      }
+      this.draw();
+    }
+  }
+}
+
 // Initialize when page loads
 window.addEventListener('load', () => {
   try {
     window.universe = new BinaryPatternUniverse();
-    window.universe.flyToPattern(PATTERN_DIAGONAL);
+    window.drawingCanvas = new DrawingCanvas();
+    // window.universe.flyToPattern(PATTERN_DIAGONAL);
   } catch (error) {
     console.error('Failed to initialize:', error);
     document.getElementById(
