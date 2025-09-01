@@ -98,7 +98,7 @@ class BinaryPatternUniverse {
     this.GRID_COLS = Math.pow(2, 25); // 33,554,432
     this.PATTERN_SIZE = 20; // Size of each 7x7 pattern in pixels
     this.STROKE_WIDTH = 0.1; // Border width between patterns
-    this.SCALE_RANGE = [0.5, 20]; // Range of zoom levels
+    this.SCALE_RANGE = [0.3, 20]; // Range of zoom levels
 
     // Camera state - start at origin for debugging
     // We track the true world position in double precision
