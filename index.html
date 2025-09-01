@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0"
+    />
     <title>7x7 Binary Pattern Universe</title>
     <style>
       body {
@@ -16,6 +19,10 @@
       canvas {
         display: block;
         cursor: grab;
+        touch-action: none; /* Prevent default touch behaviors like scrolling */
+        user-select: none; /* Prevent text selection */
+        -webkit-user-select: none; /* Safari */
+        -webkit-touch-callout: none; /* Prevent callout on iOS */
       }
 
       canvas:active {
@@ -118,8 +125,8 @@
         }
 
         #drawing-canvas {
-          width: 150px;
-          height: 150px;
+          width: 240px;
+          height: 240px;
         }
 
         .drawing-header {
@@ -140,8 +147,8 @@
         }
 
         #drawing-canvas {
-          width: 120px;
-          height: 120px;
+          width: 180px;
+          height: 180px;
         }
 
         .drawing-header {
@@ -184,7 +191,7 @@
           <button id="find-pattern" title="Find This Pattern">Find</button>
         </div>
       </div>
-      <canvas id="drawing-canvas" width="210" height="210"></canvas>
+      <canvas id="drawing-canvas" width="320" height="320"></canvas>
     </div>
 
     <script src="main.js"></script>

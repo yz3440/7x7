@@ -127,6 +127,13 @@ class BinaryPatternUniverse {
     this.isDragging = false;
     this.lastMousePos = { x: 0, y: 0 };
 
+    // Touch state for pinch-to-zoom
+    this.touchState = {
+      lastDistance: 0,
+      lastCenter: { x: 0, y: 0 },
+      isPinching: false,
+    };
+
     this.init();
   }
 
@@ -552,6 +559,107 @@ class BinaryPatternUniverse {
       this.isDragging = false;
     });
 
+    // Touch events for mobile
+    this.canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevent scrolling and other default touch behaviors
+
+      if (e.touches.length === 1) {
+        // Single finger - start dragging
+        const touch = e.touches[0];
+        this.isDragging = true;
+        this.touchState.isPinching = false;
+        this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+      } else if (e.touches.length === 2) {
+        // Two fingers - start pinching
+        this.isDragging = false;
+        this.touchState.isPinching = true;
+
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+
+        // Calculate initial distance and center point
+        this.touchState.lastDistance = this.getTouchDistance(touch1, touch2);
+        this.touchState.lastCenter = this.getTouchCenter(touch1, touch2);
+      }
+    });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault(); // Prevent scrolling and other default touch behaviors
+
+      if (
+        e.touches.length === 1 &&
+        this.isDragging &&
+        !this.touchState.isPinching
+      ) {
+        // Single finger dragging
+        const touch = e.touches[0];
+        const dx = touch.clientX - this.lastMousePos.x;
+        const dy = touch.clientY - this.lastMousePos.y;
+
+        // Update camera world position in double precision
+        // When we drag right, we want to see content to the left (camera moves left)
+        // When we drag down, we want to see content above (camera moves up)
+        this.cameraWorldPosition.x += dx / this.scale;
+        this.cameraWorldPosition.y += dy / this.scale;
+
+        // Update relative translation
+        this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+        this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+        // Check if we need to shift the origin
+        this.updateOriginShift();
+
+        this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+      } else if (e.touches.length === 2 && this.touchState.isPinching) {
+        // Two finger pinch-to-zoom
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+
+        const currentDistance = this.getTouchDistance(touch1, touch2);
+        const currentCenter = this.getTouchCenter(touch1, touch2);
+
+        if (this.touchState.lastDistance > 0) {
+          // Calculate zoom factor based on distance change
+          const zoomFactor = currentDistance / this.touchState.lastDistance;
+
+          // Convert center point to canvas coordinates
+          const rect = this.canvas.getBoundingClientRect();
+          const canvasX = currentCenter.x - rect.left;
+          const canvasY = currentCenter.y - rect.top;
+
+          // Apply zoom with center point (similar to wheel zoom logic)
+          this.handleZoom(zoomFactor, canvasX, canvasY);
+        }
+
+        this.touchState.lastDistance = currentDistance;
+        this.touchState.lastCenter = currentCenter;
+      }
+    });
+
+    this.canvas.addEventListener('touchend', (e) => {
+      e.preventDefault(); // Prevent scrolling and other default touch behaviors
+
+      if (e.touches.length === 0) {
+        // All fingers lifted
+        this.isDragging = false;
+        this.touchState.isPinching = false;
+        this.touchState.lastDistance = 0;
+      } else if (e.touches.length === 1 && this.touchState.isPinching) {
+        // Went from pinch to single finger - switch to dragging
+        this.touchState.isPinching = false;
+        this.isDragging = true;
+        const touch = e.touches[0];
+        this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+      }
+    });
+
+    this.canvas.addEventListener('touchcancel', (e) => {
+      e.preventDefault(); // Prevent scrolling and other default touch behaviors
+      this.isDragging = false;
+      this.touchState.isPinching = false;
+      this.touchState.lastDistance = 0;
+    });
+
     // Wheel zoom
     this.canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -562,57 +670,77 @@ class BinaryPatternUniverse {
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
 
-      // Convert screen to NDC, accounting for the Y flip in the shader
-      const ndcX = cursorX / (this.canvas.width * 0.5) - 1.0;
-      const ndcY = cursorY / (this.canvas.height * 0.5) - 1.0; // Apply Y flip to match shader
-
-      // Convert NDC to world coordinates before zoom (relative to shifted origin)
-      const relWorldPosBeforeZoom = {
-        x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
-        y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
-      };
-
-      // Get absolute world position (add back the origin shift)
-      const absWorldPosBeforeZoom = {
-        x: relWorldPosBeforeZoom.x + this.originShift.x,
-        y: relWorldPosBeforeZoom.y + this.originShift.y,
-      };
-
-      // Apply zoom
-      const oldScale = this.scale;
-      this.scale *= zoomFactor;
-      this.scale = Math.max(
-        this.SCALE_RANGE[0],
-        Math.min(this.SCALE_RANGE[1], this.scale)
-      );
-
-      // Convert NDC to world coordinates after zoom (relative to shifted origin)
-      const relWorldPosAfterZoom = {
-        x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
-        y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
-      };
-
-      // Get absolute world position after zoom
-      const absWorldPosAfterZoom = {
-        x: relWorldPosAfterZoom.x + this.originShift.x,
-        y: relWorldPosAfterZoom.y + this.originShift.y,
-      };
-
-      // Calculate the difference in absolute world positions
-      const deltaX = absWorldPosAfterZoom.x - absWorldPosBeforeZoom.x;
-      const deltaY = absWorldPosAfterZoom.y - absWorldPosBeforeZoom.y;
-
-      // Update camera world position to compensate
-      this.cameraWorldPosition.x += deltaX;
-      this.cameraWorldPosition.y += deltaY;
-
-      // Update relative translation
-      this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
-      this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
-
-      // Check if we need to shift the origin
-      this.updateOriginShift();
+      this.handleZoom(zoomFactor, cursorX, cursorY);
     });
+  }
+
+  // Helper method to calculate distance between two touch points
+  getTouchDistance(touch1, touch2) {
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Helper method to calculate center point between two touches
+  getTouchCenter(touch1, touch2) {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2,
+    };
+  }
+
+  // Extracted zoom handling method for both wheel and pinch zoom
+  handleZoom(zoomFactor, canvasX, canvasY) {
+    // Convert screen to NDC, accounting for the Y flip in the shader
+    const ndcX = canvasX / (this.canvas.width * 0.5) - 1.0;
+    const ndcY = canvasY / (this.canvas.height * 0.5) - 1.0; // Apply Y flip to match shader
+
+    // Convert NDC to world coordinates before zoom (relative to shifted origin)
+    const relWorldPosBeforeZoom = {
+      x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
+      y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
+    };
+
+    // Get absolute world position (add back the origin shift)
+    const absWorldPosBeforeZoom = {
+      x: relWorldPosBeforeZoom.x + this.originShift.x,
+      y: relWorldPosBeforeZoom.y + this.originShift.y,
+    };
+
+    // Apply zoom
+    const oldScale = this.scale;
+    this.scale *= zoomFactor;
+    this.scale = Math.max(
+      this.SCALE_RANGE[0],
+      Math.min(this.SCALE_RANGE[1], this.scale)
+    );
+
+    // Convert NDC to world coordinates after zoom (relative to shifted origin)
+    const relWorldPosAfterZoom = {
+      x: (ndcX * this.canvas.width * 0.5) / this.scale - this.translation.x,
+      y: (ndcY * this.canvas.height * 0.5) / this.scale - this.translation.y,
+    };
+
+    // Get absolute world position after zoom
+    const absWorldPosAfterZoom = {
+      x: relWorldPosAfterZoom.x + this.originShift.x,
+      y: relWorldPosAfterZoom.y + this.originShift.y,
+    };
+
+    // Calculate the difference in absolute world positions
+    const deltaX = absWorldPosAfterZoom.x - absWorldPosBeforeZoom.x;
+    const deltaY = absWorldPosAfterZoom.y - absWorldPosBeforeZoom.y;
+
+    // Update camera world position to compensate
+    this.cameraWorldPosition.x += deltaX;
+    this.cameraWorldPosition.y += deltaY;
+
+    // Update relative translation
+    this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+    this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+    // Check if we need to shift the origin
+    this.updateOriginShift();
   }
 
   getVisiblePatterns() {
@@ -921,8 +1049,8 @@ class BinaryPatternUniverse {
    * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
    */
   flyToPattern(binaryPattern) {
-    // Set zoom level to 10
-    this.scale = 20;
+    // Set zoom level to 15
+    this.scale = 15;
     const worldPos = this.findPatternWorldPosition(binaryPattern);
 
     // Update camera world position to center the pattern
@@ -1014,12 +1142,11 @@ class DrawingCanvas {
     this.canvas = document.getElementById('drawing-canvas');
     this.ctx = this.canvas.getContext('2d');
     this.gridSize = 7;
-    this.cellSize = 30; // Each cell is 30x30 pixels (210/7)
+    this.cellSize = Math.floor(320 / 7); // Each cell is ~45x45 pixels (320/7 ≈ 45.7)
 
     // Initialize pattern data structure - 7x7 array with 0s and 1s
-    this.pattern = Array(7)
-      .fill()
-      .map(() => Array(7).fill(0));
+    // Start with PATTERN_FS as the initial pattern
+    this.pattern = PATTERN_FS.map((row) => [...row]);
 
     // Mouse state
     this.isDrawing = false;
