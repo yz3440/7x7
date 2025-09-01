@@ -153,8 +153,8 @@ class BinaryPatternUniverse {
   }
 
   setupWebGL() {
-    // Set clear color to dark gray so we can see if anything renders
-    this.gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    // Set clear color to pure black
+    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
   }
@@ -266,6 +266,8 @@ class BinaryPatternUniverse {
             void main() {
                 float totalSize = u_patternSize + u_strokeWidth;
                 
+                float strokeAlpha = clamp(u_scale * 0.8 + 0.2, 0.2, 1.0);
+
                 // Check if we're in stroke area
                 if (v_localPos.x < u_strokeWidth * 0.5 || 
                     v_localPos.x > totalSize - u_strokeWidth * 0.5 ||
@@ -274,8 +276,7 @@ class BinaryPatternUniverse {
                     // Calculate alpha based on scale - more transparent when zoomed out (low scale)
                     // At scale 1.0, alpha = 1.0 (fully opaque)
                     // At scale 0.2, alpha = 0.2 (very transparent)
-                    float alpha = clamp(u_scale * 0.8 + 0.2, 0.2, 1.0);
-                    fragColor = vec4(1.0, 0.2, 0.2, alpha); // Red stroke with variable transparency
+                    fragColor = vec4(1.0, 0.2, 0.2, strokeAlpha); // Red stroke with variable transparency
                     return;
                 }
                 
@@ -288,7 +289,7 @@ class BinaryPatternUniverse {
                 
                 // Ensure we're within bounds
                 if (pixelX < 0 || pixelX >= 7 || pixelY < 0 || pixelY >= 7) {
-                    fragColor = vec4(1.0, 0.0, 0.0, 1.0); // Red for out of bounds
+                    fragColor = vec4(1.0, 0.2, 0.2, strokeAlpha); // Red for out of bounds
                     return;
                 }
                 
@@ -1152,7 +1153,7 @@ class DrawingCanvas {
 
   draw() {
     // Clear canvas
-    this.ctx.fillStyle = '#f0f0f0';
+    this.ctx.fillStyle = 'white';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw grid and pattern
@@ -1162,19 +1163,18 @@ class DrawingCanvas {
         const y = row * this.cellSize;
 
         // Fill cell based on pattern value
-        this.ctx.fillStyle =
-          this.pattern[row][col] === 1 ? '#ffffff' : '#000000';
+        this.ctx.fillStyle = this.pattern[row][col] === 1 ? 'white' : 'black';
         this.ctx.fillRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
 
         // Draw cell border
-        this.ctx.strokeStyle = '#cccccc';
+        this.ctx.strokeStyle = 'black';
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(x, y, this.cellSize, this.cellSize);
       }
     }
 
     // Draw outer border
-    this.ctx.strokeStyle = '#999999';
+    this.ctx.strokeStyle = 'black';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
   }

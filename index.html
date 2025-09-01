@@ -8,7 +8,7 @@
       body {
         margin: 0;
         padding: 0;
-        background: #222;
+        background: black;
         overflow: hidden;
         font-family: Arial, sans-serif;
       }
@@ -27,9 +27,8 @@
         top: 10px;
         left: 10px;
         color: white;
-        background: rgba(0, 0, 0, 0.8);
+        background: black;
         padding: 15px;
-        border-radius: 5px;
         font-size: 12px;
         max-width: 350px;
       }
@@ -40,7 +39,7 @@
         left: 0;
         width: 100%;
         color: white;
-        background: rgba(0, 0, 0, 0.7);
+        background: black;
         padding: 10px 0;
         font-size: 14px;
         font-family: monospace;
@@ -51,23 +50,21 @@
       }
 
       .error {
-        color: #ff6b6b;
-        background: rgba(255, 0, 0, 0.1);
+        color: white;
+        background: black;
         padding: 10px;
         margin: 5px 0;
-        border-radius: 3px;
+        border: 1px solid white;
       }
 
       .drawing-panel {
         position: fixed;
         bottom: 20px;
         right: 20px;
-        background: rgba(0, 0, 0, 0.9);
-        border: 2px solid #444;
-        border-radius: 8px;
+        background: black;
+        border: 2px solid white;
         padding: 15px;
         z-index: 1000;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       }
 
       .drawing-header {
@@ -86,28 +83,27 @@
       }
 
       .drawing-controls button {
-        background: #333;
-        border: 1px solid #555;
-        color: white;
+        background: white;
+        border: 1px solid black;
+        color: black;
         padding: 4px 8px;
-        border-radius: 4px;
         cursor: pointer;
         font-size: 12px;
-        transition: background-color 0.2s;
       }
 
       .drawing-controls button:hover {
-        background: #555;
+        background: black;
+        color: white;
       }
 
       .drawing-controls button:active {
-        background: #222;
+        background: black;
+        color: white;
       }
 
       #drawing-canvas {
         display: block;
-        border: 2px solid #666;
-        border-radius: 4px;
+        border: 2px solid white;
         cursor: pointer;
         background: white;
       }
@@ -182,7 +178,7 @@
     <!-- Drawing Canvas -->
     <div class="drawing-panel">
       <div class="drawing-header">
-        <span>Draw 7x7 Pattern</span>
+        <span>Draw Pattern</span>
         <div class="drawing-controls">
           <button id="clear-pattern" title="Clear Pattern">Clear</button>
           <button id="find-pattern" title="Find This Pattern">Find</button>
