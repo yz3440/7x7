@@ -51,6 +51,26 @@ const PATTERN_DIAGONAL = [
   [0, 0, 0, 0, 0, 0, 1],
 ];
 
+const PATTERN_ML = [
+  [0, 0, 0, 0, 1, 1, 1],
+  [1, 1, 1, 0, 1, 1, 1],
+  [1, 1, 1, 0, 1, 1, 1],
+  [0, 1, 1, 0, 0, 0, 0],
+  [0, 1, 1, 1, 1, 1, 0],
+  [0, 1, 1, 1, 1, 1, 0],
+  [0, 0, 0, 0, 1, 1, 0],
+];
+
+const PATTERN_ML_INV = [
+  [1, 1, 1, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
+  [1, 0, 0, 1, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 0, 0, 1],
+];
+
 const PATTERN_FS = [
   [1, 0, 1, 1, 1, 1, 1],
   [1, 0, 1, 0, 0, 0, 0],
@@ -1146,7 +1166,7 @@ class DrawingCanvas {
 
     // Initialize pattern data structure - 7x7 array with 0s and 1s
     // Start with PATTERN_FS as the initial pattern
-    this.pattern = PATTERN_FS.map((row) => [...row]);
+    this.pattern = PATTERN_ML_INV.map((row) => [...row]);
 
     // Mouse state
     this.isDrawing = false;
@@ -1176,6 +1196,9 @@ class DrawingCanvas {
     document
       .getElementById('clear-pattern')
       .addEventListener('click', () => this.clearPattern());
+    document
+      .getElementById('invert-pattern')
+      .addEventListener('click', () => this.invertPattern());
     document
       .getElementById('find-pattern')
       .addEventListener('click', () => this.findPattern());
@@ -1269,6 +1292,15 @@ class DrawingCanvas {
     this.pattern = Array(7)
       .fill()
       .map(() => Array(7).fill(0));
+    this.draw();
+  }
+
+  invertPattern() {
+    for (let row = 0; row < 7; row++) {
+      for (let col = 0; col < 7; col++) {
+        this.pattern[row][col] = this.pattern[row][col] === 0 ? 1 : 0;
+      }
+    }
     this.draw();
   }
 
