@@ -2,13 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0"
+    />
     <title>7x7 Binary Pattern Universe</title>
     <style>
       body {
         margin: 0;
         padding: 0;
-        background: #222;
+        background: black;
         overflow: hidden;
         font-family: Arial, sans-serif;
       }
@@ -16,73 +19,179 @@
       canvas {
         display: block;
         cursor: grab;
-        border: 1px solid #444;
+        touch-action: none; /* Prevent default touch behaviors like scrolling */
+        user-select: none; /* Prevent text selection */
+        -webkit-user-select: none; /* Safari */
+        -webkit-touch-callout: none; /* Prevent callout on iOS */
       }
 
       canvas:active {
         cursor: grabbing;
       }
 
-      .info {
+      .debug-info {
         position: absolute;
         top: 10px;
         left: 10px;
         color: white;
-        background: rgba(0, 0, 0, 0.8);
+        background: black;
         padding: 15px;
-        border-radius: 5px;
         font-size: 12px;
         max-width: 350px;
       }
 
+      .user-info {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        color: white;
+        background: black;
+        padding: 10px 0;
+        font-size: 14px;
+        font-family: monospace;
+        z-index: 1000;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        text-align: center;
+      }
+
       .error {
-        color: #ff6b6b;
-        background: rgba(255, 0, 0, 0.1);
+        color: white;
+        background: black;
         padding: 10px;
         margin: 5px 0;
-        border-radius: 3px;
+        border: 1px solid white;
       }
 
-      .controls {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.8);
+      .drawing-panel {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: black;
+        border: 2px solid white;
         padding: 15px;
-        border-radius: 5px;
+        z-index: 1000;
       }
 
-      .fly-button {
-        background: #4caf50;
+      .drawing-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
         color: white;
-        border: none;
-        padding: 10px 15px;
         font-size: 14px;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.3s;
+        font-weight: bold;
       }
 
-      .fly-button:hover {
-        background: #45a049;
+      .drawing-controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .drawing-controls button {
+        background: white;
+        border: 1px solid black;
+        color: black;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .drawing-controls button:hover {
+        background: black;
+        color: white;
+      }
+
+      .drawing-controls button:active {
+        background: black;
+        color: white;
+      }
+
+      #drawing-canvas {
+        display: block;
+        border: 2px solid white;
+        cursor: pointer;
+        background: white;
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 768px) {
+        .drawing-panel {
+          bottom: 10px;
+          right: 10px;
+          padding: 10px;
+          max-width: calc(100vw - 40px);
+        }
+
+        #drawing-canvas {
+          width: 240px;
+          height: 240px;
+        }
+
+        .drawing-header {
+          font-size: 12px;
+        }
+
+        .drawing-controls button {
+          padding: 3px 6px;
+          font-size: 11px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .drawing-panel {
+          bottom: 5px;
+          right: 5px;
+          padding: 8px;
+        }
+
+        #drawing-canvas {
+          width: 180px;
+          height: 180px;
+        }
+
+        .drawing-header {
+          font-size: 11px;
+          flex-direction: column;
+          gap: 5px;
+          align-items: flex-start;
+        }
+
+        .drawing-controls {
+          align-self: stretch;
+          justify-content: space-between;
+        }
       }
     </style>
   </head>
   <body>
     <canvas id="canvas"></canvas>
-    <div class="info">
-      <div><strong>7x7 Binary Pattern Universe</strong></div>
+    <div class="debug-info" hidden>
       <div>Total patterns: 2^49 = 562,949,953,421,312</div>
       <div>Grid: 2^24 rows × 2^25 columns</div>
-      <div><strong>Controls:</strong> Drag to pan, Scroll to zoom</div>
       <div id="coords">Position: (0, 0) | Zoom: 1.0x</div>
       <div id="debug">Rendering: 0 patterns</div>
       <div id="bounds">Bounds: (0,0) to (0,0)</div>
       <div id="error-log"></div>
     </div>
 
-    <div class="controls">
-      <button id="flyToFSButton" class="fly-button">Fly to FS</button>
+    <div class="user-info">
+      <div id="user-x">x: 0</div>
+      <div id="user-y">y: 0</div>
+      <div id="user-zoom">zoom: 1.0x</div>
+    </div>
+
+    <!-- Drawing Canvas -->
+    <div class="drawing-panel">
+      <div class="drawing-header">
+        <span>Draw Pattern</span>
+        <div class="drawing-controls">
+          <button id="clear-pattern" title="Clear Pattern">Clear</button>
+          <button id="find-pattern" title="Find This Pattern">Find</button>
+        </div>
+      </div>
+      <canvas id="drawing-canvas" width="320" height="320"></canvas>
     </div>
 
     <script src="main.js"></script>
