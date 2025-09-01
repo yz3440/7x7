@@ -42,7 +42,7 @@ const PATTERN_DIAGONAL = [
   [1, 0, 0, 0, 0, 0, 0],
   [0, 1, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
@@ -52,7 +52,7 @@ const PATTERN_DIAGONAL_TEST = [
   [1, 0, 0, 0, 0, 0, 0],
   [0, 1, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 0, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 1, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0],
@@ -618,7 +618,7 @@ class BinaryPatternUniverse {
       flyToFSButton.addEventListener('click', () => {
         console.log('flyToFSButton clicked');
 
-        this.flyToPattern(PATTERN_DIAGONAL_TEST);
+        this.flyToPattern(PATTERN_FS);
       });
     }
 
@@ -864,13 +864,13 @@ class BinaryPatternUniverse {
       throw new Error('Input must be an array of 7 components');
     }
 
-    let patternId = 0;
+    let patternId = 0n; // Use BigInt for large numbers
     for (let i = 0; i < 7; i++) {
-      console.log(`Component ${i} ${components[i]}`);
-      patternId |= (components[i] & 0x7f) << (i * 7); // Each component contributes 7 bits
-      console.log(`Cumulative ID ${patternId}`);
+      const component = BigInt(components[i] & 0x7f); // Convert to BigInt and mask to 7 bits
+      const shift = BigInt(i * 7); // Convert shift to BigInt
+      patternId |= component << shift; // Each component contributes 7 bits
     }
-    return patternId;
+    return Number(patternId); // Convert back to regular number for compatibility
   }
 
   /**
@@ -954,12 +954,60 @@ class BinaryPatternUniverse {
       `Flew to pattern at world position (${worldPos.x}, ${worldPos.y})`
     );
   }
+
+  /**
+   * Test function to verify the bit manipulation fix
+   */
+  static testBitManipulation() {
+    console.log('=== Testing Bit Manipulation Fix ===');
+    
+    // Test case 1: Component 4 changing from 0 to 16
+    const components1 = [0, 0, 0, 0, 0, 0, 0];
+    const components2 = [0, 0, 0, 0, 16, 0, 0];
+    
+    const patternId1 = BinaryPatternUniverse.componentsToPatternId(components1);
+    const patternId2 = BinaryPatternUniverse.componentsToPatternId(components2);
+    
+    console.log('Test 1: Component 4 change from 0 to 16');
+    console.log(`Components [0,0,0,0,0,0,0] -> PatternId: ${patternId1}`);
+    console.log(`Components [0,0,0,0,16,0,0] -> PatternId: ${patternId2}`);
+    console.log(`Difference: ${patternId2 - patternId1} (should be ${16 * Math.pow(2, 28)} = ${16 * Math.pow(2, 28)})`);
+    console.log(`Test 1 ${patternId1 !== patternId2 ? 'PASSED' : 'FAILED'}`);
+    
+    // Test case 2: Round trip test
+    const testComponents = [1, 2, 4, 8, 16, 32, 64];
+    const reconstructedId = BinaryPatternUniverse.componentsToPatternId(testComponents);
+    const reconstructedComponents = BinaryPatternUniverse.breakLargeIndexInto7BitComponents(reconstructedId);
+    
+    console.log('\nTest 2: Round trip test');
+    console.log(`Original: [${testComponents.join(',')}]`);
+    console.log(`Pattern ID: ${reconstructedId}`);
+    console.log(`Reconstructed: [${reconstructedComponents.join(',')}]`);
+    console.log(`Test 2 ${JSON.stringify(testComponents) === JSON.stringify(reconstructedComponents) ? 'PASSED' : 'FAILED'}`);
+    
+    // Test case 3: Large number test
+    const largeComponents = [127, 127, 127, 127, 127, 127, 127]; // Maximum 7-bit values
+    const largeId = BinaryPatternUniverse.componentsToPatternId(largeComponents);
+    const reconstructedLarge = BinaryPatternUniverse.breakLargeIndexInto7BitComponents(largeId);
+    
+    console.log('\nTest 3: Large number test (all 127s)');
+    console.log(`Original: [${largeComponents.join(',')}]`);
+    console.log(`Pattern ID: ${largeId}`);
+    console.log(`Reconstructed: [${reconstructedLarge.join(',')}]`);
+    console.log(`Test 3 ${JSON.stringify(largeComponents) === JSON.stringify(reconstructedLarge) ? 'PASSED' : 'FAILED'}`);
+    
+    console.log('=== End Bit Manipulation Test ===');
+  }
   // Helper function to break a large integer into 7-bit components
   static breakLargeIndexInto7BitComponents(largeIdx) {
+    let bigIdx = BigInt(largeIdx); // Convert to BigInt for large number operations
     const components = [];
+    const mask = BigInt(0x7f); // 7-bit mask as BigInt
+    const shift = BigInt(7); // Shift amount as BigInt
+
     for (let i = 0; i < 7; i++) {
-      components.push(largeIdx & 0x7f); // Extract lowest 7 bits
-      largeIdx >>= 7; // Shift right by 7 bits
+      components.push(Number(bigIdx & mask)); // Extract lowest 7 bits and convert back to number
+      bigIdx >>= shift; // Shift right by 7 bits
     }
     return components;
   }
@@ -1019,6 +1067,9 @@ class BinaryPatternUniverse {
 // Initialize when page loads
 window.addEventListener('load', () => {
   try {
+    // Run bit manipulation test first
+    BinaryPatternUniverse.testBitManipulation();
+    
     window.universe = new BinaryPatternUniverse();
     window.universe.flyToPattern(PATTERN_DIAGONAL);
   } catch (error) {
