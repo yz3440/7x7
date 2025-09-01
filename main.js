@@ -42,20 +42,10 @@ const PATTERN_DIAGONAL = [
   [1, 0, 0, 0, 0, 0, 0],
   [0, 1, 0, 0, 0, 0, 0],
   [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-];
-
-const PATTERN_DIAGONAL_TEST = [
-  [1, 0, 0, 0, 0, 0, 0],
-  [0, 1, 0, 0, 0, 0, 0],
-  [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 1, 0, 0, 0],
   [0, 0, 0, 0, 1, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 1, 0],
+  [0, 0, 0, 0, 0, 0, 1],
 ];
 
 const PATTERN_FS = [
@@ -97,7 +87,7 @@ class BinaryPatternUniverse {
     this.GRID_COLS = Math.pow(2, 25); // 33,554,432
     this.PATTERN_SIZE = 20; // Size of each 7x7 pattern in pixels
     this.STROKE_WIDTH = 0.1; // Border width between patterns
-    this.SCALE_RANGE = [0.3, 20]; // Range of zoom levels
+    this.SCALE_RANGE = [0.5, 20]; // Range of zoom levels
 
     // Camera state - start at origin for debugging
     // We track the true world position in double precision
@@ -616,8 +606,6 @@ class BinaryPatternUniverse {
     const flyToFSButton = document.getElementById('flyToFSButton');
     if (flyToFSButton) {
       flyToFSButton.addEventListener('click', () => {
-        console.log('flyToFSButton clicked');
-
         this.flyToPattern(PATTERN_FS);
       });
     }
@@ -916,15 +904,23 @@ class BinaryPatternUniverse {
    */
   findPatternWorldPosition(binaryPattern) {
     // Convert pattern to components
+
+    // Print the pattern
+    let patternString = '';
+    for (let row = 0; row < 7; row++) {
+      patternString += `${binaryPattern[row].join(', ')}\n`;
+    }
+    console.log(`Target pattern:\n${patternString}`);
+
     const components =
       BinaryPatternUniverse.binaryPatternTo7BitComponents(binaryPattern);
-    console.log(`Found components ${components}`);
+    console.log(`Pattern components ${components}`);
     // Convert components to pattern ID
     const patternId = BinaryPatternUniverse.componentsToPatternId(components);
-    console.log(`Found pattern ID ${patternId}`);
+    console.log(`Pattern ID ${patternId}`);
     // Convert pattern ID to row/col
     const { row, col } = this.patternIdToRowCol(patternId);
-    console.log(`Found pattern at row ${row}, col ${col}`);
+    console.log(`Pattern at row ${row}, col ${col}`);
     // Convert row/col to world position
     return this.rowColToWorldPos(row, col);
   }
@@ -955,49 +951,6 @@ class BinaryPatternUniverse {
     );
   }
 
-  /**
-   * Test function to verify the bit manipulation fix
-   */
-  static testBitManipulation() {
-    console.log('=== Testing Bit Manipulation Fix ===');
-    
-    // Test case 1: Component 4 changing from 0 to 16
-    const components1 = [0, 0, 0, 0, 0, 0, 0];
-    const components2 = [0, 0, 0, 0, 16, 0, 0];
-    
-    const patternId1 = BinaryPatternUniverse.componentsToPatternId(components1);
-    const patternId2 = BinaryPatternUniverse.componentsToPatternId(components2);
-    
-    console.log('Test 1: Component 4 change from 0 to 16');
-    console.log(`Components [0,0,0,0,0,0,0] -> PatternId: ${patternId1}`);
-    console.log(`Components [0,0,0,0,16,0,0] -> PatternId: ${patternId2}`);
-    console.log(`Difference: ${patternId2 - patternId1} (should be ${16 * Math.pow(2, 28)} = ${16 * Math.pow(2, 28)})`);
-    console.log(`Test 1 ${patternId1 !== patternId2 ? 'PASSED' : 'FAILED'}`);
-    
-    // Test case 2: Round trip test
-    const testComponents = [1, 2, 4, 8, 16, 32, 64];
-    const reconstructedId = BinaryPatternUniverse.componentsToPatternId(testComponents);
-    const reconstructedComponents = BinaryPatternUniverse.breakLargeIndexInto7BitComponents(reconstructedId);
-    
-    console.log('\nTest 2: Round trip test');
-    console.log(`Original: [${testComponents.join(',')}]`);
-    console.log(`Pattern ID: ${reconstructedId}`);
-    console.log(`Reconstructed: [${reconstructedComponents.join(',')}]`);
-    console.log(`Test 2 ${JSON.stringify(testComponents) === JSON.stringify(reconstructedComponents) ? 'PASSED' : 'FAILED'}`);
-    
-    // Test case 3: Large number test
-    const largeComponents = [127, 127, 127, 127, 127, 127, 127]; // Maximum 7-bit values
-    const largeId = BinaryPatternUniverse.componentsToPatternId(largeComponents);
-    const reconstructedLarge = BinaryPatternUniverse.breakLargeIndexInto7BitComponents(largeId);
-    
-    console.log('\nTest 3: Large number test (all 127s)');
-    console.log(`Original: [${largeComponents.join(',')}]`);
-    console.log(`Pattern ID: ${largeId}`);
-    console.log(`Reconstructed: [${reconstructedLarge.join(',')}]`);
-    console.log(`Test 3 ${JSON.stringify(largeComponents) === JSON.stringify(reconstructedLarge) ? 'PASSED' : 'FAILED'}`);
-    
-    console.log('=== End Bit Manipulation Test ===');
-  }
   // Helper function to break a large integer into 7-bit components
   static breakLargeIndexInto7BitComponents(largeIdx) {
     let bigIdx = BigInt(largeIdx); // Convert to BigInt for large number operations
@@ -1067,9 +1020,6 @@ class BinaryPatternUniverse {
 // Initialize when page loads
 window.addEventListener('load', () => {
   try {
-    // Run bit manipulation test first
-    BinaryPatternUniverse.testBitManipulation();
-    
     window.universe = new BinaryPatternUniverse();
     window.universe.flyToPattern(PATTERN_DIAGONAL);
   } catch (error) {
