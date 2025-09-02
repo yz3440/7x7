@@ -31,12 +31,12 @@ class AnimationManager {
     if (progress <= 0.5) {
       // First half: zoom out to scale 1
       const phase1Progress = progress * 2; // 0 to 1
-      const easedProgress = this.easeInOutQuint(phase1Progress);
+      const easedProgress = this.easeInOutCubic(phase1Progress);
       return startScale + (1.0 - startScale) * easedProgress;
     } else {
       // Second half: zoom from scale 1 to target
       const phase2Progress = (progress - 0.5) * 2; // 0 to 1
-      const easedProgress = this.easeInOutQuint(phase2Progress);
+      const easedProgress = this.easeInOutCubic(phase2Progress);
       return 1.0 + (endScale - 1.0) * easedProgress;
     }
   }
