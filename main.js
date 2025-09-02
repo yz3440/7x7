@@ -803,10 +803,10 @@ class BinaryPatternUniverse {
 
     // Limit grid size to prevent memory issues
     const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
-    let clampedStartCol = Math.max(-maxGridSize, startCol);
-    let clampedStartRow = Math.max(-maxGridSize, startRow);
-    let clampedEndCol = Math.min(maxGridSize, endCol);
-    let clampedEndRow = Math.min(maxGridSize, endRow);
+    let clampedStartCol = Math.max(-this.GRID_COLS, startCol);
+    let clampedStartRow = Math.max(-this.GRID_ROWS, startRow);
+    let clampedEndCol = Math.min(this.GRID_COLS, endCol);
+    let clampedEndRow = Math.min(this.GRID_ROWS, endRow);
 
     const rowSpan = clampedEndRow - clampedStartRow;
     const colSpan = clampedEndCol - clampedStartCol;
@@ -1006,11 +1006,10 @@ class BinaryPatternUniverse {
    * @returns {object} Object with row and col properties
    */
   patternIdToRowCol(patternId) {
-    const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
-
     // Reverse the calculation: patternId = normalizedRow * maxGridSize + normalizedCol
-    let normalizedRow = Math.floor(patternId / maxGridSize);
-    let normalizedCol = patternId % maxGridSize;
+    let normalizedRow = Math.floor(patternId / this.GRID_COLS);
+    let normalizedCol = patternId % this.GRID_COLS;
+
     if (normalizedCol >= this.GRID_COLS / 2) {
       normalizedCol -= this.GRID_COLS;
     } else if (normalizedCol < -this.GRID_COLS / 2) {
