@@ -951,17 +951,21 @@ class BinaryPatternUniverse {
     const userPattern = document.getElementById('user-pattern');
 
     if (userX) {
-      userX.textContent = `x: ${-Math.round(this.cameraWorldPosition.x)}`;
+      const xValue = -Math.round(this.cameraWorldPosition.x);
+      const displayX = xValue === 0 ? 0 : xValue; // Convert -0 to 0
+      userX.textContent = `x: ${displayX.toLocaleString()}`;
     }
     if (userY) {
-      userY.textContent = `y: ${-Math.round(this.cameraWorldPosition.y)}`;
+      const yValue = -Math.round(this.cameraWorldPosition.y);
+      const displayY = yValue === 0 ? 0 : yValue; // Convert -0 to 0
+      userY.textContent = `y: ${displayY.toLocaleString()}`;
     }
     if (userZoom) {
       userZoom.textContent = `zoom: ${this.scale.toFixed(2)}x`;
     }
     if (userPattern) {
       const { count } = this.getVisiblePatterns();
-      userPattern.textContent = `patterns in view: ${count}`;
+      userPattern.textContent = `patterns in view: ${count.toLocaleString()}`;
     }
 
     // Update debug info panel only if enabled
