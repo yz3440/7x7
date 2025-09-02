@@ -1011,9 +1011,17 @@ class BinaryPatternUniverse {
     // Reverse the calculation: patternId = normalizedRow * maxGridSize + normalizedCol
     let normalizedRow = Math.floor(patternId / maxGridSize);
     let normalizedCol = patternId % maxGridSize;
-    // if (normalizedCol > maxGridSize / 2) {
-    //   normalizedCol -= maxGridSize;
-    // }
+    if (normalizedCol >= this.GRID_COLS / 2) {
+      normalizedCol -= this.GRID_COLS;
+    } else if (normalizedCol < -this.GRID_COLS / 2) {
+      normalizedCol += this.GRID_COLS;
+    }
+
+    if (normalizedRow >= this.GRID_ROWS / 2) {
+      normalizedRow -= this.GRID_ROWS;
+    } else if (normalizedRow < -this.GRID_ROWS / 2) {
+      normalizedRow += this.GRID_ROWS;
+    }
 
     // Reverse the normalization: normalizedRow = row + maxGridSize
     const row = normalizedRow;
