@@ -1,5 +1,118 @@
 // Configuration
 const SHOW_DEBUG_PANEL = false; // Set to true to show the floating debug panel
+const SHOW_ANIMATION_CONTROLS = false; // Set to true to show animation duration controls for developers
+const FLY_TO_TARGET_SCALE = 15;
+
+// Animation Manager Class for smooth transitions
+class AnimationManager {
+  constructor() {
+    this.isAnimating = false;
+    this.startTime = 0;
+    this.duration = 2000; // 2 seconds default
+    this.startPosition = { x: 0, y: 0 };
+    this.endPosition = { x: 0, y: 0 };
+    this.startScale = 1.0;
+    this.endScale = 1.0;
+    this.onUpdate = null;
+    this.onComplete = null;
+  }
+
+  // Ease-in-out cubic function
+  easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  easeInOutQuint(t) {
+    return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
+  }
+
+  // Two-phase scale animation: zoom out to 1, then zoom in to target
+  getTwoPhaseScale(progress, startScale, endScale) {
+    if (progress <= 0.5) {
+      // First half: zoom out to scale 1
+      const phase1Progress = progress * 2; // 0 to 1
+      const easedProgress = this.easeInOutCubic(phase1Progress);
+      return startScale + (1.0 - startScale) * easedProgress;
+    } else {
+      // Second half: zoom from scale 1 to target
+      const phase2Progress = (progress - 0.5) * 2; // 0 to 1
+      const easedProgress = this.easeInOutCubic(phase2Progress);
+      return 1.0 + (endScale - 1.0) * easedProgress;
+    }
+  }
+
+  // Start a new animation
+  start(startPos, endPos, startScale, endScale, duration = 2000) {
+    this.isAnimating = true;
+    this.startTime = performance.now();
+    this.duration = duration;
+    this.startPosition = { x: startPos.x, y: startPos.y };
+    this.endPosition = { x: endPos.x, y: endPos.y };
+    this.startScale = startScale;
+    this.endScale = endScale;
+  }
+
+  // Update animation and return current values
+  update() {
+    if (!this.isAnimating) {
+      return null;
+    }
+
+    const currentTime = performance.now();
+    const elapsed = currentTime - this.startTime;
+    const progress = Math.min(elapsed / this.duration, 1.0);
+
+    // Apply ease-in-out easing
+    const easedProgress = this.easeInOutCubic(progress);
+
+    // Interpolate position
+    const currentPosition = {
+      x:
+        this.startPosition.x +
+        (this.endPosition.x - this.startPosition.x) * easedProgress,
+      y:
+        this.startPosition.y +
+        (this.endPosition.y - this.startPosition.y) * easedProgress,
+    };
+
+    // Two-phase scale interpolation: zoom out to 1, then zoom in to target
+    const currentScale = this.getTwoPhaseScale(
+      progress,
+      this.startScale,
+      this.endScale
+    );
+
+    // Check if animation is complete
+    if (progress >= 1.0) {
+      this.isAnimating = false;
+      if (this.onComplete) {
+        this.onComplete();
+      }
+    }
+
+    // Call update callback
+    if (this.onUpdate) {
+      this.onUpdate(currentPosition, currentScale);
+    }
+
+    return {
+      position: currentPosition,
+      scale: currentScale,
+      progress: progress,
+      isComplete: progress >= 1.0,
+    };
+  }
+
+  // Stop animation
+  stop() {
+    this.isAnimating = false;
+  }
+
+  // Check if currently animating
+  isRunning() {
+    return this.isAnimating;
+  }
+}
 
 const PATTERN_EMPTY = [
   [0, 0, 0, 0, 0, 0, 0],
@@ -142,6 +255,9 @@ class BinaryPatternUniverse {
     };
 
     this.scale = 1.0;
+
+    // Animation manager for smooth transitions
+    this.animationManager = new AnimationManager();
 
     // Mouse state
     this.isDragging = false;
@@ -549,12 +665,14 @@ class BinaryPatternUniverse {
   setupEventListeners() {
     // Mouse events
     this.canvas.addEventListener('mousedown', (e) => {
-      this.isDragging = true;
-      this.lastMousePos = { x: e.clientX, y: e.clientY };
+      if (!this.animationManager.isRunning()) {
+        this.isDragging = true;
+        this.lastMousePos = { x: e.clientX, y: e.clientY };
+      }
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (this.isDragging) {
+      if (this.isDragging && !this.animationManager.isRunning()) {
         const dx = e.clientX - this.lastMousePos.x;
         const dy = e.clientY - this.lastMousePos.y;
 
@@ -583,23 +701,25 @@ class BinaryPatternUniverse {
     this.canvas.addEventListener('touchstart', (e) => {
       e.preventDefault(); // Prevent scrolling and other default touch behaviors
 
-      if (e.touches.length === 1) {
-        // Single finger - start dragging
-        const touch = e.touches[0];
-        this.isDragging = true;
-        this.touchState.isPinching = false;
-        this.lastMousePos = { x: touch.clientX, y: touch.clientY };
-      } else if (e.touches.length === 2) {
-        // Two fingers - start pinching
-        this.isDragging = false;
-        this.touchState.isPinching = true;
+      if (!this.animationManager.isRunning()) {
+        if (e.touches.length === 1) {
+          // Single finger - start dragging
+          const touch = e.touches[0];
+          this.isDragging = true;
+          this.touchState.isPinching = false;
+          this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+        } else if (e.touches.length === 2) {
+          // Two fingers - start pinching
+          this.isDragging = false;
+          this.touchState.isPinching = true;
 
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
 
-        // Calculate initial distance and center point
-        this.touchState.lastDistance = this.getTouchDistance(touch1, touch2);
-        this.touchState.lastCenter = this.getTouchCenter(touch1, touch2);
+          // Calculate initial distance and center point
+          this.touchState.lastDistance = this.getTouchDistance(touch1, touch2);
+          this.touchState.lastCenter = this.getTouchCenter(touch1, touch2);
+        }
       }
     });
 
@@ -609,7 +729,8 @@ class BinaryPatternUniverse {
       if (
         e.touches.length === 1 &&
         this.isDragging &&
-        !this.touchState.isPinching
+        !this.touchState.isPinching &&
+        !this.animationManager.isRunning()
       ) {
         // Single finger dragging
         const touch = e.touches[0];
@@ -630,7 +751,11 @@ class BinaryPatternUniverse {
         this.updateOriginShift();
 
         this.lastMousePos = { x: touch.clientX, y: touch.clientY };
-      } else if (e.touches.length === 2 && this.touchState.isPinching) {
+      } else if (
+        e.touches.length === 2 &&
+        this.touchState.isPinching &&
+        !this.animationManager.isRunning()
+      ) {
         // Two finger pinch-to-zoom
         const touch1 = e.touches[0];
         const touch2 = e.touches[1];
@@ -682,15 +807,17 @@ class BinaryPatternUniverse {
 
     // Wheel zoom
     this.canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      if (!this.animationManager.isRunning()) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
 
-      // Get cursor position in screen coordinates
-      const rect = this.canvas.getBoundingClientRect();
-      const cursorX = e.clientX - rect.left;
-      const cursorY = e.clientY - rect.top;
+        // Get cursor position in screen coordinates
+        const rect = this.canvas.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
 
-      this.handleZoom(zoomFactor, cursorX, cursorY);
+        this.handleZoom(zoomFactor, cursorX, cursorY);
+      }
     });
   }
 
@@ -983,6 +1110,24 @@ class BinaryPatternUniverse {
 
   startRenderLoop() {
     const renderFrame = () => {
+      // Update animation if running
+      if (this.animationManager.isRunning()) {
+        const animationState = this.animationManager.update();
+        if (animationState) {
+          // Update camera position and scale from animation
+          this.cameraWorldPosition.x = animationState.position.x;
+          this.cameraWorldPosition.y = animationState.position.y;
+          this.scale = animationState.scale;
+
+          // Update relative translation
+          this.translation.x = this.cameraWorldPosition.x - this.originShift.x;
+          this.translation.y = this.cameraWorldPosition.y - this.originShift.y;
+
+          // Check if we need to shift the origin during animation
+          this.updateOriginShift();
+        }
+      }
+
       this.render();
       this.updateInfo();
       requestAnimationFrame(renderFrame);
@@ -1112,28 +1257,55 @@ class BinaryPatternUniverse {
   }
 
   /**
-   * Fly to a specific pattern with zoom level 10
+   * Fly to a specific pattern with smooth animation
    * @param {number[][]} binaryPattern - 7x7 array containing only 0s and 1s
+   * @param {number} duration - Animation duration in milliseconds (default: 2000)
+   * @param {number} targetScale - Target zoom level (default: 10)
    */
-  flyToPattern(binaryPattern) {
-    // Set zoom level to 15
-    this.scale = 15;
-    const worldPos = this.findPatternWorldPosition(binaryPattern);
+  flyToPattern(
+    binaryPattern,
+    duration = 2000,
+    targetScale = FLY_TO_TARGET_SCALE
+  ) {
+    // Stop any existing animation
+    this.animationManager.stop();
 
-    // Update camera world position to center the pattern
-    this.cameraWorldPosition.x = worldPos.x;
-    this.cameraWorldPosition.y = worldPos.y;
+    // Get target world position
+    const targetWorldPos = this.findPatternWorldPosition(binaryPattern);
 
-    // Reset origin shift to camera position to maximize precision
-    this.originShift.x = worldPos.x;
-    this.originShift.y = worldPos.y;
+    // Get current position and scale
+    const startPosition = {
+      x: this.cameraWorldPosition.x,
+      y: this.cameraWorldPosition.y,
+    };
+    const startScale = this.scale;
 
-    // Relative translation is now zero since camera is at origin
-    this.translation.x = 0;
-    this.translation.y = 0;
+    // Set up animation completion callback to reset origin shift
+    this.animationManager.onComplete = () => {
+      // Reset origin shift to target position to maximize precision
+      this.originShift.x = targetWorldPos.x;
+      this.originShift.y = targetWorldPos.y;
+
+      // Relative translation is now zero since camera is at origin
+      this.translation.x = 0;
+      this.translation.y = 0;
+
+      console.log(
+        `Animation completed. Flew to pattern at world position (${targetWorldPos.x}, ${targetWorldPos.y})`
+      );
+    };
+
+    // Start the animation
+    this.animationManager.start(
+      startPosition,
+      targetWorldPos,
+      startScale,
+      targetScale,
+      duration
+    );
 
     console.log(
-      `Flew to pattern at world position (${worldPos.x}, ${worldPos.y})`
+      `Starting flight animation to pattern at world position (${targetWorldPos.x}, ${targetWorldPos.y})`
     );
   }
 
@@ -1223,6 +1395,14 @@ class DrawingCanvas {
   }
 
   init() {
+    // Show animation controls only if developer mode is enabled
+    if (SHOW_ANIMATION_CONTROLS) {
+      const animationControls = document.querySelector('.animation-controls');
+      if (animationControls) {
+        animationControls.style.display = 'flex';
+      }
+    }
+
     this.setupEventListeners();
     this.draw();
   }
@@ -1249,6 +1429,29 @@ class DrawingCanvas {
     document
       .getElementById('find-pattern')
       .addEventListener('click', () => this.findPattern());
+
+    // Animation control events (only if developer mode is enabled)
+    if (SHOW_ANIMATION_CONTROLS) {
+      const durationInput = document.getElementById('animation-duration');
+      const speedSelect = document.getElementById('animation-speed');
+
+      if (durationInput && speedSelect) {
+        // Sync speed selector with duration input
+        speedSelect.addEventListener('change', () => {
+          durationInput.value = speedSelect.value;
+        });
+
+        // Update speed selector when duration input changes (if it matches a preset)
+        durationInput.addEventListener('input', () => {
+          const value = durationInput.value;
+          if (speedSelect.querySelector(`option[value="${value}"]`)) {
+            speedSelect.value = value;
+          } else {
+            speedSelect.value = ''; // Clear selection if custom value
+          }
+        });
+      }
+    }
   }
 
   getCanvasPosition(clientX, clientY) {
@@ -1353,7 +1556,22 @@ class DrawingCanvas {
 
   findPattern() {
     if (window.universe) {
-      window.universe.flyToPattern(this.pattern);
+      let duration = 2000; // Default duration
+
+      // Get duration from the UI control only if animation controls are enabled
+      if (SHOW_ANIMATION_CONTROLS) {
+        const durationInput = document.getElementById('animation-duration');
+        if (durationInput) {
+          duration = parseInt(durationInput.value) || 2000;
+          // Ensure duration is within reasonable bounds
+          duration = Math.max(100, Math.min(10000, duration));
+          console.log(
+            `Flying to pattern with ${duration}ms duration (developer mode)`
+          );
+        }
+      }
+
+      window.universe.flyToPattern(this.pattern, duration);
     }
   }
 
