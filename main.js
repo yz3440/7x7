@@ -948,6 +948,7 @@ class BinaryPatternUniverse {
     const userX = document.getElementById('user-x');
     const userY = document.getElementById('user-y');
     const userZoom = document.getElementById('user-zoom');
+    const userPattern = document.getElementById('user-pattern');
 
     if (userX) {
       userX.textContent = `x: ${-Math.round(this.cameraWorldPosition.x)}`;
@@ -957,6 +958,10 @@ class BinaryPatternUniverse {
     }
     if (userZoom) {
       userZoom.textContent = `zoom: ${this.scale.toFixed(2)}x`;
+    }
+    if (userPattern) {
+      const { count } = this.getVisiblePatterns();
+      userPattern.textContent = `patterns in view: ${count}`;
     }
 
     // Update debug info panel only if enabled
@@ -1027,6 +1032,37 @@ class BinaryPatternUniverse {
     const col = normalizedCol;
 
     return { row, col };
+  }
+
+  /**
+   * Gets the pattern ID at the center of the current view
+   * @returns {number} The pattern ID at the center of the view
+   */
+  getCenterPatternId() {
+    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
+
+    // Get the center of the screen in world coordinates
+    const centerScreenX = this.canvas.width / 2;
+    const centerScreenY = this.canvas.height / 2;
+
+    // Convert screen coordinates to relative world coordinates
+    const relativeWorldX = centerScreenX / this.scale - this.translation.x;
+    const relativeWorldY = centerScreenY / this.scale - this.translation.y;
+
+    // Convert to absolute world coordinates
+    const absoluteWorldX = relativeWorldX + this.originShift.x;
+    const absoluteWorldY = relativeWorldY + this.originShift.y;
+
+    // Convert to grid coordinates
+    const col = Math.floor(absoluteWorldX / patternSize);
+    const row = Math.floor(absoluteWorldY / patternSize);
+
+    // Calculate pattern ID using the same logic as in getVisiblePatterns
+    const maxGridSize = Math.max(this.GRID_COLS, this.GRID_ROWS);
+    const normalizedRow = ((row % maxGridSize) + maxGridSize) % maxGridSize;
+    const normalizedCol = ((col % maxGridSize) + maxGridSize) % maxGridSize;
+
+    return normalizedRow * maxGridSize + normalizedCol;
   }
 
   /**
