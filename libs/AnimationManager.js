@@ -1,3 +1,5 @@
+const MIDDLE_SCALE = 5.0;
+
 // Animation Manager Class for smooth transitions
 class AnimationManager {
   constructor() {
@@ -21,18 +23,18 @@ class AnimationManager {
     return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2;
   }
 
-  // Two-phase scale animation: zoom out to 1, then zoom in to target
-  getTwoPhaseScale(progress, startScale, endScale) {
+  // Two-phase scale animation: zoom to middle scale, then zoom to target
+  getTwoPhaseScale(progress, startScale, endScale, middleScale = MIDDLE_SCALE) {
     if (progress <= 0.5) {
-      // First half: zoom out to scale 1
+      // First half: zoom to middle scale
       const phase1Progress = progress * 2; // 0 to 1
       const easedProgress = this.easeInOutCubic(phase1Progress);
-      return startScale + (1.0 - startScale) * easedProgress;
+      return startScale + (middleScale - startScale) * easedProgress;
     } else {
-      // Second half: zoom from scale 1 to target
+      // Second half: zoom from middle scale to target
       const phase2Progress = (progress - 0.5) * 2; // 0 to 1
       const easedProgress = this.easeInOutCubic(phase2Progress);
-      return 1.0 + (endScale - 1.0) * easedProgress;
+      return middleScale + (endScale - middleScale) * easedProgress;
     }
   }
 

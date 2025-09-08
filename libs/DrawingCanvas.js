@@ -1,5 +1,6 @@
 const FLY_TO_DURATION = 2000;
-const ANIMATION_INTERVAL = 2500;
+const ANIMATION_FLY_TO_DURATION = 2000;
+const ANIMATION_INTERVAL = 3000;
 
 // Drawing Canvas Class
 class DrawingCanvas {
@@ -348,10 +349,7 @@ class DrawingCanvas {
 
         // Fly to the pattern
         if (window.universe) {
-          window.universe.flyToPattern(
-            this.pattern,
-            Math.min(interval * 0.8, 2000)
-          );
+          window.universe.flyToPattern(this.pattern, ANIMATION_FLY_TO_DURATION);
         }
       }
 
