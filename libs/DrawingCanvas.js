@@ -53,9 +53,9 @@ class DrawingCanvas {
       .getElementById('find-pattern')
       .addEventListener('click', () => this.findPattern());
 
-    // Research groups select event
+    // Media Lab groups select event
     document
-      .getElementById('research-groups-select')
+      .getElementById('ml-groups-select')
       .addEventListener('change', (e) => this.handleResearchGroupChange(e));
 
     // Animation control events (only if developer mode is enabled)
@@ -252,7 +252,7 @@ class DrawingCanvas {
 
   // Populate the research groups select dropdown
   populateResearchGroupsSelect() {
-    const select = document.getElementById('research-groups-select');
+    const select = document.getElementById('ml-groups-select');
     if (select && typeof GROUP_PATTERNS !== 'undefined') {
       // Clear existing options except the first one
       while (select.children.length > 1) {

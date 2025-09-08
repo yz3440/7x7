@@ -138,7 +138,7 @@
         font-size: 12px;
       }
 
-      .research-groups-control {
+      .ml-groups-control {
         display: flex;
         gap: 8px;
         align-items: center;
@@ -147,12 +147,12 @@
         font-size: 12px;
       }
 
-      .research-groups-control label {
+      .ml-groups-control label {
         color: white;
         white-space: nowrap;
       }
 
-      .research-groups-control select {
+      .ml-groups-control select {
         background: white;
         border: 1px solid black;
         color: black;
@@ -216,13 +216,13 @@
           font-size: 11px;
         }
 
-        .research-groups-control {
+        .ml-groups-control {
           flex-wrap: wrap;
           gap: 5px;
           font-size: 11px;
         }
 
-        .research-groups-control select {
+        .ml-groups-control select {
           min-width: 120px;
           padding: 1px 4px;
           font-size: 11px;
@@ -271,14 +271,14 @@
           font-size: 10px;
         }
 
-        .research-groups-control {
+        .ml-groups-control {
           flex-direction: column;
           align-items: flex-start;
           gap: 3px;
           font-size: 10px;
         }
 
-        .research-groups-control select {
+        .ml-groups-control select {
           min-width: 100px;
           padding: 1px 3px;
           font-size: 10px;
@@ -314,13 +314,10 @@
           <button id="find-pattern" title="Find This Pattern">Fly To</button>
         </div>
       </div>
-      <div class="research-groups-control">
-        <label for="research-groups-select">Research Groups:</label>
-        <select
-          id="research-groups-select"
-          title="Select a research group pattern"
-        >
-          <option value="">-- Select Group --</option>
+      <div class="ml-groups-control">
+        <label for="ml-groups-select">ML Groups:</label>
+        <select id="ml-groups-select" title="Select a media lab group pattern">
+          <option value="">-- Media Lab Groups --</option>
         </select>
       </div>
       <div class="animation-controls">
