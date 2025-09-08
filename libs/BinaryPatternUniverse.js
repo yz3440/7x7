@@ -876,15 +876,20 @@ class BinaryPatternUniverse {
     const userZoom = document.getElementById('user-zoom');
     const userPattern = document.getElementById('user-pattern');
 
+    const patternSize = this.PATTERN_SIZE + this.STROKE_WIDTH;
     if (userX) {
-      const xValue = -Math.round(this.cameraWorldPosition.x);
-      const displayX = xValue === 0 ? 0 : xValue; // Convert -0 to 0
-      userX.textContent = `x: ${displayX.toLocaleString()}`;
+      const xValue =
+        -(this.cameraWorldPosition.x + patternSize / 2) / patternSize;
+      const roundedX = Math.round(xValue * 10) / 10; // round to one decimal
+      const displayX = roundedX === 0 ? 0 : roundedX; // Convert -0 to 0
+      userX.textContent = `col: ${displayX.toLocaleString()}`;
     }
     if (userY) {
-      const yValue = -Math.round(this.cameraWorldPosition.y);
-      const displayY = yValue === 0 ? 0 : yValue; // Convert -0 to 0
-      userY.textContent = `y: ${displayY.toLocaleString()}`;
+      const yValue =
+        -(this.cameraWorldPosition.y + patternSize / 2) / patternSize;
+      const roundedY = Math.round(yValue * 10) / 10; // round to one decimal
+      const displayY = roundedY === 0 ? 0 : roundedY; // Convert -0 to 0
+      userY.textContent = `row: ${displayY.toLocaleString()}`;
     }
     if (userZoom) {
       userZoom.textContent = `zoom: ${this.scale.toFixed(2)}x`;
@@ -896,7 +901,7 @@ class BinaryPatternUniverse {
         (this.canvas.width / (this.PATTERN_SIZE * this.scale)) *
           (this.canvas.height / (this.PATTERN_SIZE * this.scale))
       );
-      userPattern.textContent = `patterns in view: ~${count.toLocaleString()}`;
+      userPattern.textContent = `in view: ~${count.toLocaleString()}`;
     }
 
     // Update debug info panel only if enabled

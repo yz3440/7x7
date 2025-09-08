@@ -1,6 +1,6 @@
 const FLY_TO_DURATION = 2000;
-const ANIMATION_FLY_TO_DURATION = 2000;
-const ANIMATION_INTERVAL = 3000;
+const ANIMATION_FLY_TO_DURATION = 800;
+const ANIMATION_INTERVAL = 2400;
 
 // Drawing Canvas Class
 class DrawingCanvas {
