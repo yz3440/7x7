@@ -164,46 +164,6 @@ const PATTERN_DIAGONAL = [
   [0, 0, 0, 0, 0, 0, 1],
 ];
 
-const PATTERN_ML = [
-  [0, 0, 0, 0, 1, 1, 1],
-  [1, 1, 1, 0, 1, 1, 1],
-  [1, 1, 1, 0, 1, 1, 1],
-  [0, 1, 1, 0, 0, 0, 0],
-  [0, 1, 1, 1, 1, 1, 0],
-  [0, 1, 1, 1, 1, 1, 0],
-  [0, 0, 0, 0, 1, 1, 0],
-];
-
-const PATTERN_ML_INV = [
-  [1, 1, 1, 1, 0, 0, 0],
-  [0, 0, 0, 1, 0, 0, 0],
-  [0, 0, 0, 1, 0, 0, 0],
-  [1, 0, 0, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 1, 0, 0, 1],
-];
-
-const PATTERN_FS = [
-  [1, 0, 1, 1, 1, 1, 1],
-  [1, 0, 1, 0, 0, 0, 0],
-  [1, 0, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 1],
-  [1, 0, 1, 0, 0, 1, 1],
-  [1, 0, 1, 0, 0, 0, 0],
-  [1, 1, 1, 1, 1, 1, 1],
-];
-
-const PATTERN_FS_INV = [
-  [0, 1, 0, 0, 0, 0, 0],
-  [0, 1, 0, 1, 1, 1, 1],
-  [0, 1, 0, 0, 0, 0, 0],
-  [0, 1, 1, 1, 1, 1, 0],
-  [0, 1, 0, 1, 1, 0, 0],
-  [0, 1, 0, 1, 1, 1, 1],
-  [0, 0, 0, 0, 0, 0, 0],
-];
-
 class BinaryPatternUniverse {
   constructor() {
     this.canvas = document.getElementById('canvas');
@@ -1384,8 +1344,7 @@ class DrawingCanvas {
     this.cellSize = Math.floor(320 / 7); // Each cell is ~45x45 pixels (320/7 ≈ 45.7)
 
     // Initialize pattern data structure - 7x7 array with 0s and 1s
-    // Start with PATTERN_FS as the initial pattern
-    this.pattern = PATTERN_ML_INV.map((row) => [...row]);
+    this.pattern = PATTERN_ML.map((row) => [...row]);
 
     // Mouse state
     this.isDrawing = false;
