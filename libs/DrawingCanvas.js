@@ -1,3 +1,6 @@
+const FLY_TO_DURATION = 2000;
+const ANIMATION_INTERVAL = 2500;
+
 // Drawing Canvas Class
 class DrawingCanvas {
   constructor() {
@@ -12,6 +15,11 @@ class DrawingCanvas {
     // Mouse state
     this.isDrawing = false;
     this.currentDrawValue = 1; // What value to draw (0 or 1)
+
+    // Animation state
+    this.isAnimating = false;
+    this.animationTimer = null;
+    this.currentAnimationIndex = 0;
 
     this.init();
   }
@@ -57,6 +65,11 @@ class DrawingCanvas {
     document
       .getElementById('ml-groups-select')
       .addEventListener('change', (e) => this.handleResearchGroupChange(e));
+
+    // Animate button event
+    document
+      .getElementById('animate-groups')
+      .addEventListener('click', () => this.toggleAnimation());
 
     // Animation control events (only if developer mode is enabled)
     if (SHOW_ANIMATION_CONTROLS) {
@@ -105,6 +118,7 @@ class DrawingCanvas {
 
   handleMouseDown(e) {
     e.preventDefault();
+    this.stopAnimation(); // Stop animation when user interacts with canvas
     this.isDrawing = true;
 
     const pos = this.getCanvasPosition(e.clientX, e.clientY);
@@ -167,6 +181,7 @@ class DrawingCanvas {
   }
 
   clearPattern() {
+    this.stopAnimation(); // Stop animation when user clicks button
     this.pattern = Array(7)
       .fill()
       .map(() => Array(7).fill(0));
@@ -174,6 +189,7 @@ class DrawingCanvas {
   }
 
   invertPattern() {
+    this.stopAnimation(); // Stop animation when user clicks button
     for (let row = 0; row < 7; row++) {
       for (let col = 0; col < 7; col++) {
         this.pattern[row][col] = this.pattern[row][col] === 0 ? 1 : 0;
@@ -183,14 +199,15 @@ class DrawingCanvas {
   }
 
   findPattern() {
+    this.stopAnimation(); // Stop animation when user clicks button
     if (window.universe) {
-      let duration = 2000; // Default duration
+      let duration = FLY_TO_DURATION;
 
       // Get duration from the UI control only if animation controls are enabled
       if (SHOW_ANIMATION_CONTROLS) {
         const durationInput = document.getElementById('animation-duration');
         if (durationInput) {
-          duration = parseInt(durationInput.value) || 2000;
+          duration = parseInt(durationInput.value) || FLY_TO_DURATION;
           // Ensure duration is within reasonable bounds
           duration = Math.max(100, Math.min(10000, duration));
           console.log(
@@ -275,12 +292,95 @@ class DrawingCanvas {
   handleResearchGroupChange(e) {
     const selectedGroup = e.target.value;
     if (selectedGroup && GROUP_PATTERNS[selectedGroup]) {
+      // Stop animation if user manually selects a group (unless it's from animation)
+      if (!this.isAnimating) {
+        this.stopAnimation();
+      }
+
       // Set the pattern to the default pattern of the selected group
       const groupPattern = GROUP_PATTERNS[selectedGroup].default;
       this.setPattern(groupPattern);
 
       // Automatically fly to the pattern
       this.findPattern();
+    }
+  }
+
+  // Toggle animation on/off
+  toggleAnimation() {
+    if (this.isAnimating) {
+      this.stopAnimation();
+    } else {
+      this.startAnimation();
+    }
+  }
+
+  // Start the animation through all groups
+  startAnimation() {
+    if (typeof GROUP_PATTERNS === 'undefined') return;
+
+    const interval = ANIMATION_INTERVAL;
+
+    this.isAnimating = true;
+    this.currentAnimationIndex = 0;
+    const groupNames = Object.keys(GROUP_PATTERNS).sort();
+
+    // Update button appearance
+    const animateButton = document.getElementById('animate-groups');
+    if (animateButton) {
+      animateButton.textContent = 'Stop';
+      animateButton.classList.add('animating');
+    }
+    // Function to animate to next group
+    const animateNext = () => {
+      if (!this.isAnimating) return;
+
+      const groupName = groupNames[this.currentAnimationIndex];
+      const select = document.getElementById('ml-groups-select');
+
+      if (select && groupName) {
+        // Update select dropdown
+        select.value = groupName;
+
+        // Set the pattern
+        const groupPattern = GROUP_PATTERNS[groupName].default;
+        this.setPattern(groupPattern);
+
+        // Fly to the pattern
+        if (window.universe) {
+          window.universe.flyToPattern(
+            this.pattern,
+            Math.min(interval * 0.8, 2000)
+          );
+        }
+      }
+
+      // Move to next group
+      this.currentAnimationIndex =
+        (this.currentAnimationIndex + 1) % groupNames.length;
+
+      // Schedule next animation
+      this.animationTimer = setTimeout(animateNext, interval);
+    };
+
+    // Start the animation
+    animateNext();
+  }
+
+  // Stop the animation
+  stopAnimation() {
+    this.isAnimating = false;
+
+    if (this.animationTimer) {
+      clearTimeout(this.animationTimer);
+      this.animationTimer = null;
+    }
+
+    // Update button appearance
+    const animateButton = document.getElementById('animate-groups');
+    if (animateButton) {
+      animateButton.textContent = 'Animate';
+      animateButton.classList.remove('animating');
     }
   }
 }
