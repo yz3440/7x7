@@ -890,8 +890,13 @@ class BinaryPatternUniverse {
       userZoom.textContent = `zoom: ${this.scale.toFixed(2)}x`;
     }
     if (userPattern) {
-      const { count } = this.getVisiblePatterns();
-      userPattern.textContent = `patterns in view: ${count.toLocaleString()}`;
+      // Count the number of patterns by fitting squares into the screen
+      // const { count } = this.getVisiblePatterns();
+      const count = Math.round(
+        (this.canvas.width / (this.PATTERN_SIZE * this.scale)) *
+          (this.canvas.height / (this.PATTERN_SIZE * this.scale))
+      );
+      userPattern.textContent = `patterns in view: ~${count.toLocaleString()}`;
     }
 
     // Update debug info panel only if enabled

@@ -138,6 +138,29 @@
         font-size: 12px;
       }
 
+      .ml-groups-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 10px;
+        color: white;
+        font-size: 12px;
+      }
+
+      .ml-groups-control label {
+        color: white;
+        white-space: nowrap;
+      }
+
+      .ml-groups-control select {
+        background: white;
+        border: 1px solid black;
+        color: black;
+        padding: 2px 6px;
+        font-size: 12px;
+        min-width: 150px;
+      }
+
       #drawing-canvas {
         display: block;
         border: 2px solid white;
@@ -192,6 +215,18 @@
           padding: 1px 3px;
           font-size: 11px;
         }
+
+        .ml-groups-control {
+          flex-wrap: wrap;
+          gap: 5px;
+          font-size: 11px;
+        }
+
+        .ml-groups-control select {
+          min-width: 120px;
+          padding: 1px 4px;
+          font-size: 11px;
+        }
       }
 
       @media (max-width: 480px) {
@@ -235,6 +270,19 @@
           padding: 1px 2px;
           font-size: 10px;
         }
+
+        .ml-groups-control {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 3px;
+          font-size: 10px;
+        }
+
+        .ml-groups-control select {
+          min-width: 100px;
+          padding: 1px 3px;
+          font-size: 10px;
+        }
       }
     </style>
   </head>
@@ -266,6 +314,12 @@
           <button id="find-pattern" title="Find This Pattern">Fly To</button>
         </div>
       </div>
+      <div class="ml-groups-control">
+        <label for="ml-groups-select">ML Groups:</label>
+        <select id="ml-groups-select" title="Select a media lab group pattern">
+          <option value="">-- Media Lab Groups --</option>
+        </select>
+      </div>
       <div class="animation-controls">
         <label for="animation-duration">Duration:</label>
         <input
@@ -288,7 +342,7 @@
       <canvas id="drawing-canvas" width="320" height="320"></canvas>
     </div>
 
-    <script src="patterns.js"></script>
+    <script src="libs/patterns.js"></script>
     <script src="libs/AnimationManager.js"></script>
     <script src="libs/BinaryPatternUniverse.js"></script>
     <script src="libs/DrawingCanvas.js"></script>

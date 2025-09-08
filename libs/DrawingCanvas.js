@@ -25,6 +25,7 @@ class DrawingCanvas {
       }
     }
 
+    this.populateResearchGroupsSelect();
     this.setupEventListeners();
     this.draw();
   }
@@ -51,6 +52,11 @@ class DrawingCanvas {
     document
       .getElementById('find-pattern')
       .addEventListener('click', () => this.findPattern());
+
+    // Media Lab groups select event
+    document
+      .getElementById('ml-groups-select')
+      .addEventListener('change', (e) => this.handleResearchGroupChange(e));
 
     // Animation control events (only if developer mode is enabled)
     if (SHOW_ANIMATION_CONTROLS) {
@@ -241,6 +247,40 @@ class DrawingCanvas {
         }
       }
       this.draw();
+    }
+  }
+
+  // Populate the research groups select dropdown
+  populateResearchGroupsSelect() {
+    const select = document.getElementById('ml-groups-select');
+    if (select && typeof GROUP_PATTERNS !== 'undefined') {
+      // Clear existing options except the first one
+      while (select.children.length > 1) {
+        select.removeChild(select.lastChild);
+      }
+
+      // Add options for each research group
+      Object.keys(GROUP_PATTERNS)
+        .sort()
+        .forEach((groupName) => {
+          const option = document.createElement('option');
+          option.value = groupName;
+          option.textContent = groupName;
+          select.appendChild(option);
+        });
+    }
+  }
+
+  // Handle research group selection change
+  handleResearchGroupChange(e) {
+    const selectedGroup = e.target.value;
+    if (selectedGroup && GROUP_PATTERNS[selectedGroup]) {
+      // Set the pattern to the default pattern of the selected group
+      const groupPattern = GROUP_PATTERNS[selectedGroup].default;
+      this.setPattern(groupPattern);
+
+      // Automatically fly to the pattern
+      this.findPattern();
     }
   }
 }
