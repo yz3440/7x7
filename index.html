@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0"
     />
-    <title>7x7 Binary Pattern Universe</title>
+    <title>Every 7x7 Binary Grid</title>
     <style>
       body {
         margin: 0;
@@ -324,10 +324,10 @@
   <body>
     <canvas id="canvas"></canvas>
     <div class="debug-info" hidden>
-      <div>Total patterns: 2^49 = 562,949,953,421,312</div>
+      <div>Total grids: 2^49 = 562,949,953,421,312</div>
       <div>Grid: 2^24 rows × 2^25 columns</div>
       <div id="coords">Position: (0, 0) | Zoom: 1.0x</div>
-      <div id="debug">Rendering: 0 patterns</div>
+      <div id="debug">Rendering: 0 grids</div>
       <div id="bounds">Bounds: (0,0) to (0,0)</div>
       <div id="error-log"></div>
     </div>
@@ -336,17 +336,17 @@
       <div id="user-x">col: 0</div>
       <div id="user-y">row: 0</div>
       <div id="user-zoom">zoom: 1.0x</div>
-      <div id="user-pattern">patterns in view: 0</div>
+      <div id="user-pattern">grids in view: 0</div>
     </div>
 
     <!-- Drawing Canvas -->
     <div class="drawing-panel">
       <div class="drawing-header">
-        <span>Draw Pattern</span>
+        <span>Draw Grid</span>
         <div class="drawing-controls">
-          <button id="clear-pattern" title="Clear Pattern">Clear</button>
-          <button id="invert-pattern" title="Invert Pattern">Invert</button>
-          <button id="find-pattern" title="Find This Pattern">Fly To</button>
+          <button id="clear-pattern" title="Clear Grid">Clear</button>
+          <button id="invert-pattern" title="Invert Grid">Invert</button>
+          <button id="find-pattern" title="Find This Grid">Fly To</button>
         </div>
       </div>
 
