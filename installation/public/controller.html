@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><title>Draw + Explore · Every 7×7 Binary Grid</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/controller.css"></head>
+<body class="controller-page split-controller" data-layout="split">
+<header class="split-nav" aria-label="Controller navigation">
+  <div id="coordinates" class="drawing-info" aria-label="Monitor coordinates">
+    <span id="draw-col">col: —</span><span id="draw-row">row: —</span><span id="draw-zoom">zoom: —</span><span id="user-pattern">in view: —</span>
+  </div>
+</header>
+<div class="split-layout">
+<main id="draw-view" class="controller" aria-label="Draw Grid">
+  <div class="drawing-stage">
+    <div id="grid" class="grid" role="group" aria-label="Draw a 7 by 7 pattern"></div>
+  </div>
+  <div class="drawing-header">
+    <div class="drawing-controls"><button id="clear">Clear</button><button id="invert">Invert</button></div>
+    <div class="ml-groups-control"><label for="groups">Group:</label><select id="groups"><option value="">-- Media Lab Groups --</option></select></div>
+    <button id="find" disabled>Fly To</button>
+  </div>
+  <div class="controller-status"><p id="connection" class="controller-connection" role="status">Connecting…</p><p id="feedback" role="status">Waiting for the display…</p></div>
+</main>
+<section id="explore-view" class="explore-view" aria-label="Mirror of monitor">
+  <div id="mirror-stage"><div id="mirror-frame"><canvas id="canvas" aria-label="Monitor view. Drag to pan and pinch to zoom."></canvas></div></div>
+  <div hidden><span id="user-x"></span><span id="user-y"></span><span id="user-zoom"></span></div>
+  <p id="mirror-status" role="status">Waiting for the display…</p><div id="error-log" role="alert"></div>
+</section>
+</div>
+<footer class="instruction-bar" aria-label="Controller instructions">
+  <span>Draw pattern here</span><div class="explore-instructions"><span>Drag to pan, pinch to zoom</span><button id="fullscreen" type="button" aria-pressed="false">Full screen</button></div>
+</footer>
+<p id="fullscreen-status" role="status" hidden></p>
+<script src="/shared/patterns.js"></script><script src="/shared/AnimationManager.js"></script><script src="/shared/BinaryPatternUniverse.js"></script><script src="/InstallationUniverse.js"></script><script type="module" src="/controller.js"></script></body></html>

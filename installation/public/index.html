@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Installation setup · Every 7×7 Binary Grid</title><link rel="stylesheet" href="/style.css"></head>
+<body><main class="setup">
+  <p class="eyebrow">Installation / device setup</p>
+  <h1>Every 7×7<br>Binary Grid</h1>
+  <p>One canvas. Two screens. Every possible pattern.</p>
+  <div class="setup-links"><a class="button primary" href="/display.html">Open monitor display ↗</a><a class="button" href="/controller.html">Open drawing controller ↗</a></div>
+  <h2>Connect the iPad</h2>
+  <p>Join the same network as this computer, then open one of these addresses in Safari. Choose the address of your Wi-Fi or Ethernet connection.</p>
+  <div id="addresses">Finding local addresses…</div>
+  <p class="muted">The monitor connects to this computer by HDMI or USB-C. Keep the display page open on it. You can also open the controller in a second window on this computer.</p>
+  <p class="muted">If the iPad cannot open this page, check the computer’s firewall and use a network that allows devices to communicate, such as a travel router.</p>
+</main><script>
+fetch('/api/network').then(r => r.json()).then(({ urls }) => {
+  const container = document.getElementById('addresses');
+  container.textContent = urls.length ? '' : 'No local network address found. Connect this computer to Wi-Fi or Ethernet.';
+  for (const url of urls) {
+    const link = document.createElement('a');
+    link.href = `${url}/controller.html`; link.textContent = link.href;
+    const p = document.createElement('p'); p.append(link); container.append(p);
+  }
+}).catch(() => { document.getElementById('addresses').textContent = 'Could not read network addresses. Reload to try again.'; });
+</script></body></html>
